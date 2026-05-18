@@ -97,6 +97,23 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 - 너무 많으면 `xargs -P 4` 같은 병렬 호출로 속도 개선
 - merged 여부는 `mergedAt != null` 로 판정 (state는 closed지만 mergedAt이 있으면 merged)
 
+#### 2-1. 입력 다이어트 (모델 컨텍스트 진입 전 1회 가공)
+
+요약 단계의 병목은 모델 입력 크기다. `gh pr view` 응답을 받은 직후 다음 규칙으로 한 번 잘라 두면 한 달치(약 30 PR) 기준 토큰을 30~50% 절감하면서 출력 품질은 유지된다.
+
+**릴리즈 PR 특수 처리.** PR title이 `Release/` 로 시작하거나 head branch가 `release/*` 인 PR은:
+- `gh pr view` 보강 호출에서 `body`,`files`,`commits` 필드를 빼고 메타데이터(`number,title,state,createdAt,mergedAt,closedAt,additions,deletions,changedFiles,url,repository`)만 받음
+- 커밋 수가 필요하면 별도로 `gh api graphql` 한 번에 `pullRequest(number).commits { totalCount }` 만 조회. 본문/커밋 메시지/파일 목록은 모델 입력에 절대 포함하지 않음
+- 모델은 이 PR들을 §3-1 의 1줄 고정 요약 분기로 처리 (PR title 외 추가 입력 없음)
+
+**일반 PR 응답 가공.** body·commits·files 를 다음과 같이 트리밍해 후속 단계로 넘긴다.
+- `body`:
+  1. GitHub callout block 제거 — `> [!CAUTION]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!NOTE]` 시작 라인부터 다음 빈 줄 또는 `---` 까지를 잘라낸다
+  2. `## 수동 테스트 체크리스트` 또는 `### 테스트 항목` 헤딩이 나타나면 그 이후 본문을 모두 절단 (PR 템플릿의 체크박스·위험도 표가 들어가 있어 토큰 낭비가 큼)
+  3. 남은 본문이 1500자를 넘으면 첫 1500자만 사용
+- `commits`: `messageHeadline` 만 남기고 `messageBody` 는 drop. 헤드라인 자체에 핵심이 담겨 있어 손실 적음
+- `files`: `files[].path` 만, 상위 10개까지. 나머지는 `... (N more)` 한 줄로 축약
+
 ### 3. 집계 (Python 또는 jq)
 
 `jq`로도 충분하지만 가독성/속도를 위해 Python 권장:
@@ -112,18 +129,17 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 
 이력서/평가용으로 가장 중요한 부분. 각 PR이 **어떤 작업을 수행했는지**를 2~4 불릿으로 정리한다.
 
-요약 소스(우선순위):
-1. **PR body** — 작성자가 직접 정리한 변경 사유·의도. 가장 신뢰도 높음
-2. **커밋 메시지** (`commits[].messageHeadline`, 필요 시 `messageBody`) — body가 비거나 한 줄짜리일 때 핵심 소스
-3. **변경 파일 목록** (`files[].path`) — 어떤 영역(domain/ui/network 등)을 건드렸는지 추론할 때만 보조적으로 활용
+요약 소스(우선순위) — 모두 §2-1 의 입력 다이어트를 거친 가공 결과를 그대로 사용한다:
+1. **PR body** (callout 제거, 체크리스트 절단, 1500자 cap 적용된 본문) — 작성자가 직접 정리한 변경 사유·의도. 가장 신뢰도 높음
+2. **커밋 메시지** (`commits[].messageHeadline` only — `messageBody` 는 사용하지 않음) — body가 비거나 한 줄짜리일 때 핵심 소스
+3. **변경 파일 목록** (`files[].path` 상위 10개) — 어떤 영역(domain/ui/network 등)을 건드렸는지 추론할 때만 보조적으로 활용
 
 작성 가이드:
 - 2~4 불릿, 각 한 줄(약 40~80자). "무엇을 / 왜"가 드러나도록
 - 평가 자료 톤: "~ 구현", "~ 분리", "~ 마이그레이션", "~ 도입" 같은 명사형 종결
-- PR 템플릿 보일러플레이트(체크리스트·스크린샷 자리표시자 등)는 제거하고 본질만 추출
-- body·커밋·파일 모두로도 의미 있는 요약을 못 뽑겠으면 `(요약 생략 — PR 본문/커밋 메시지 정보 부족)` 한 줄로 대체. **억지 요약 금지**
-- 릴리즈 머지 PR(`Release/`, 브랜치 머지)은 1줄 요약 (포함된 기능 카테고리만)
-- PR body 가 매우 큰 경우(릴리즈 노트 등)는 첫 ~2000자만 입력으로 사용해 토큰을 아낀다
+- PR 템플릿 보일러플레이트는 §2-1 가공 단계에서 이미 잘려 있어야 함. 본문 추출 단계에서 다시 확인할 필요 없음
+- 커밋 헤드라인이 `WIP`·`fix typo`·`ktlint`·자동 머지뿐이거나 body 가 비어 있으면 의미 있는 요약을 못 뽑는 케이스 — `(요약 생략 — PR 본문/커밋 메시지 정보 부족)` 한 줄로 대체. **억지 요약 금지**
+- **릴리즈 PR(`Release/` prefix 또는 `release/*` head) 은 1줄 요약 고정**: `- {버전} 릴리즈 머지` 형식. §2-1 규칙대로 body·files·commits 가 모델 입력에 들어와 있지 않으므로 PR title 의 버전 정보만으로 처리
 
 #### 3-2. 레포 단위 "기간 작업 요약" 생성
 

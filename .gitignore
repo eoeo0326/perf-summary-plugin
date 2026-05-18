@@ -3,3 +3,6 @@
 node_modules/
 .idea/
 .vscode/
+
+# 플러그인 실행 결과물 (사용자별 GitHub 활동 보고서)
+PerformanceSummary/

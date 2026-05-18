@@ -8,7 +8,8 @@ GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직별로 집계
 ```
 perf-summary-plugin/
 ├── .claude-plugin/
-│   └── plugin.json
+│   ├── plugin.json
+│   └── marketplace.json
 └── skills/
     └── perf-summary/
         └── SKILL.md
@@ -33,14 +34,28 @@ claude --plugin-dir .
 /perf-summary --year 2025
 ```
 
-## 설치 (GitHub 배포 후)
+## 설치
 
-`~/.claude/settings.json` 에 다음 항목을 추가하면 됨:
+Claude Code 세션에서 다음 두 줄로 설치:
+
+```
+/plugin marketplace add eoeo0326/perf-summary-plugin
+/plugin install perf-summary@perf-summary-marketplace
+```
+
+첫 줄은 이 GitHub 레포를 마켓플레이스로 등록하고, 두 번째 줄이 실제 플러그인을 설치한다.
+
+업데이트는 `/plugin marketplace update perf-summary-marketplace` 후 `/plugin update perf-summary@perf-summary-marketplace`.
+
+<details>
+<summary>또는 settings.json에 사전 등록</summary>
+
+`~/.claude/settings.json` 에 다음을 추가하면 `/plugin marketplace add` 단계를 생략할 수 있다.
 
 ```json
 {
   "extraKnownMarketplaces": {
-    "perf-summary": {
+    "perf-summary-marketplace": {
       "source": {
         "source": "github",
         "repo": "eoeo0326/perf-summary-plugin"
@@ -50,11 +65,9 @@ claude --plugin-dir .
 }
 ```
 
-이후 Claude Code에서:
+이후 `/plugin install perf-summary@perf-summary-marketplace`.
 
-```
-/plugin install perf-summary
-```
+</details>
 
 ## 사용 방법
 

@@ -1,6 +1,6 @@
 ---
 name: perf-summary
-description: GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직별로 집계해 이력서·성과 평가용 Markdown 보고서를 생성합니다. 사용자가 "성과 정리", "기여도 요약", "GitHub 활동 정리", "perf summary", "performance summary" 등을 요청하거나 /perf-summary 명령을 호출했을 때 발동합니다. gh CLI를 사용해 PR(state/리뷰/병합 정보)과 변경 라인·파일·커밋 수를 수집한 뒤 PerformanceSummary/{시작연도}/{since}_{until}.md 에 저장합니다.
+description: GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직별로 집계해 이력서·성과 평가용 Markdown 보고서를 생성합니다. 사용자가 "성과 정리", "기여도 요약", "GitHub 활동 정리", "perf summary", "performance summary" 등을 요청하거나 /perf-summary 명령을 호출했을 때 발동합니다. gh CLI를 사용해 PR(state/리뷰/병합 정보)과 변경 라인·파일·커밋 수를 수집한 뒤 PerformanceSummary/{시작연도}/{since}_{until}.md 에 저장합니다. --year/--month 인자로 연·월 단위 일괄 생성도 지원합니다.
 ---
 
 # Performance Summary Skill
@@ -12,21 +12,58 @@ description: GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직
 
 | 인자 | 필수 | 설명 |
 |---|---|---|
-| `--since YYYY-MM-DD` | ✅ | 집계 시작일(포함) |
-| `--until YYYY-MM-DD` | ✅ | 집계 종료일(포함) |
-| `--org <org>` | △ | 조직명. 쉼표로 여러 개 가능 (`deep-medi-backend,deep-medi-Android`). `--repo` 없으면 필수 |
-| `--repo <owner/repo>` | △ | 특정 레포만 집계. `--org`보다 우선. 단독 사용 시 `--org` 생략 가능 |
-| `--output <path>` | ❌ | 출력 경로 강제 지정. 미지정 시 기본 경로 사용 |
+| `--year YYYY` | △ | 해당 연도(1/1~12/31)를 **월별 12개 + 연간 1개** 보고서로 분할 생성. `--month`/`--since`/`--until`과 상호 배타 |
+| `--month YYYY-MM` | △ | 해당 월 1일~말일을 **단일 보고서**로 생성. 윤년 자동 처리. `--year`/`--since`/`--until`과 상호 배타 |
+| `--since YYYY[-MM[-DD]]` | △ | 집계 시작일(포함). `YYYY`→해당 연 1/1, `YYYY-MM`→해당 월 1일, `YYYY-MM-DD`→그대로. `--year`/`--month` 미사용 시 필수 |
+| `--until YYYY[-MM[-DD]]` | ❌ | 집계 종료일(포함). `YYYY`→해당 연 12/31, `YYYY-MM`→해당 월 말일(윤년 자동), `YYYY-MM-DD`→그대로. **미지정 시 오늘** |
+| `--org <org>` | ❌ | 조직명. 쉼표로 여러 개 가능 (`deep-medi-backend,deep-medi-Android`). **미지정 시 전체 조직** |
+| `--repo <owner/repo>` | ❌ | 특정 레포만 집계. `--org`보다 우선. **미지정 시 전체 레포** |
+| `--output <path>` | ❌ | 단일 보고서일 때만 유효. `--year` 모드에선 무시(경고만 출력) |
+
+### 인자 검증
+
+- `--year`/`--month`/`--since` 중 **정확히 하나**가 지정되어야 함 (`--until`은 `--since`에 종속). 모두 비어 있으면 어느 모드를 쓸지 사용자에게 질의
+- `--year`/`--month`와 `--since`(또는 `--until`)는 상호 배타 → 동시 사용 시 에러
+- `--until` 단독은 무의미 → 에러
+- `--year`: `^\d{4}$`
+- `--month`: `^\d{4}-(0[1-9]|1[0-2])$`
+- `--since`/`--until`: `^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$`
+- 부분 형식은 §0에서 정규화한 뒤 `since <= until` 검증
+- `--until` 생략 시 `UNTIL=$(date '+%Y-%m-%d')` (오늘, 로컬 타임존)
+- `--org`/`--repo`가 둘 다 비어 있어도 **묻지 말고 전체 조회 모드로 진행** (author 필터만 사용)
 
 ## 실행 순서
 
+### 0. 모드 판별
+
+1. `--year` 지정 → **year 모드**: `(YYYY-01-01, YYYY-12-31)` + 월별 12쌍 생성
+2. `--month` 지정 → **month 모드**: `(YYYY-MM-01, YYYY-MM-말일)` 단일
+3. 둘 다 없음 → **range 모드**: `--since`/`--until`을 다음 규칙으로 정규화
+
+   a. `--since` 정규화:
+   - `YYYY` → `SINCE=YYYY-01-01`
+   - `YYYY-MM` → `SINCE=YYYY-MM-01`
+   - `YYYY-MM-DD` → `SINCE=YYYY-MM-DD` (그대로)
+
+   b. `--until` 정규화 (생략 시 오늘):
+   - 없음 → `UNTIL=$(date '+%Y-%m-%d')`
+   - `YYYY` → `UNTIL=YYYY-12-31`
+   - `YYYY-MM` → `UNTIL=YYYY-MM-<말일>` (윤년 자동, 아래 산출식 사용)
+   - `YYYY-MM-DD` → `UNTIL=YYYY-MM-DD` (그대로)
+
+월말 산출(macOS 기준):
+
+```bash
+LAST=$(date -j -f '%Y-%m-%d' "${YYYY}-${MM}-01" -v+1m -v-1d '+%Y-%m-%d')
+# 또는: python3 -c "import calendar,sys;y,m=map(int,sys.argv[1:]);print(calendar.monthrange(y,m)[1])" $YYYY $MM
+```
+
 ### 1. 사전 점검
+
 - `gh auth status` 로 인증 확인
 - `gh api user --jq '.login'` 로 현재 로그인 사용자(`$LOGIN`) 획득
-- 인자 검증:
-  - `--since`, `--until`가 `YYYY-MM-DD` 형식인지 확인
-  - `--repo`도 `--org`도 없으면 사용자에게 어느 쪽을 쓸지 물어볼 것
-  - 기간이 너무 길어 1000건을 초과할 위험이 있으면 경고
+- 인자 검증(위 규칙)
+- 기간이 너무 길어 1000건을 초과할 위험이 있으면 경고
 
 ### 2. PR 수집
 
@@ -42,10 +79,21 @@ gh search prs \
 
 조직 지정 시: org별로 반복 (또는 `--owner=$ORG` 사용)
 
+**전체 모드(org/repo 미지정) 시**: owner/repo 필터를 빼고 `--author`와 `--created`만으로 호출
+```bash
+gh search prs \
+  --author="$LOGIN" \
+  --created="$SINCE..$UNTIL" \
+  --limit 1000 \
+  --json number,title,state,isDraft,createdAt,closedAt,url,repository,labels
+```
+
 > `gh search prs`의 `--json` 필드는 부족하므로, 각 PR의 상세(additions/deletions/commits/changedFiles/mergedAt 등)는 아래 명령으로 보강:
 ```bash
-gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,additions,deletions,changedFiles,commits,reviews,url,repository
+gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,additions,deletions,changedFiles,commits,reviews,url,repository,body,files
 ```
+- `body`/`files` 는 PR별 "작업 내용" 요약(§3)을 만들기 위해 필요
+- `commits` 객체에는 `messageHeadline`·`messageBody` 가 포함됨 (별도 호출 불필요)
 - 너무 많으면 `xargs -P 4` 같은 병렬 호출로 속도 개선
 - merged 여부는 `mergedAt != null` 로 판정 (state는 closed지만 mergedAt이 있으면 merged)
 
@@ -57,7 +105,43 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 # 카테고리: merged / open / closed_not_merged / draft
 # 합산: PRs, commits, additions, deletions, changedFiles
 # 그룹: 레포별
+# year 모드에서는 mergedAt(또는 createdAt) 기준으로 월별 버킷팅도 함께
 ```
+
+#### 3-1. PR별 "작업 내용" 요약 생성
+
+이력서/평가용으로 가장 중요한 부분. 각 PR이 **어떤 작업을 수행했는지**를 2~4 불릿으로 정리한다.
+
+요약 소스(우선순위):
+1. **PR body** — 작성자가 직접 정리한 변경 사유·의도. 가장 신뢰도 높음
+2. **커밋 메시지** (`commits[].messageHeadline`, 필요 시 `messageBody`) — body가 비거나 한 줄짜리일 때 핵심 소스
+3. **변경 파일 목록** (`files[].path`) — 어떤 영역(domain/ui/network 등)을 건드렸는지 추론할 때만 보조적으로 활용
+
+작성 가이드:
+- 2~4 불릿, 각 한 줄(약 40~80자). "무엇을 / 왜"가 드러나도록
+- 평가 자료 톤: "~ 구현", "~ 분리", "~ 마이그레이션", "~ 도입" 같은 명사형 종결
+- PR 템플릿 보일러플레이트(체크리스트·스크린샷 자리표시자 등)는 제거하고 본질만 추출
+- body·커밋·파일 모두로도 의미 있는 요약을 못 뽑겠으면 `(요약 생략 — PR 본문/커밋 메시지 정보 부족)` 한 줄로 대체. **억지 요약 금지**
+- 릴리즈 머지 PR(`Release/`, 브랜치 머지)은 1줄 요약 (포함된 기능 카테고리만)
+- PR body 가 매우 큰 경우(릴리즈 노트 등)는 첫 ~2000자만 입력으로 사용해 토큰을 아낀다
+
+#### 3-2. 레포 단위 "기간 작업 요약" 생성
+
+각 레포에 대해, 해당 기간 PR들을 모두 훑은 뒤 **이 기간 동안 이 레포에서 한 굵직한 작업**을 테마별로 묶어 종합 요약을 만든다. PR별 요약을 단순 나열하지 말고, **공통 흐름이 보이는 PR들을 한 항목으로 묶고** 단발성 PR은 단발성 그대로 1줄로 둔다.
+
+분량(작업 크기 = 해당 레포의 PR 수 + 변경 라인 합):
+- 소규모 (PR 1~2건 또는 변경 ~200라인): 2~4 불릿
+- 중규모 (PR 3~6건 또는 변경 ~1000라인): 5~10 불릿
+- 대규모 (PR 7건+ 또는 변경 1000라인+): 최대 20 불릿
+- **상한 엄수**: 어떤 경우에도 한 레포 요약은 **20 불릿을 초과하지 않음**. 초과하면 묶기를 더 강하게 하거나 마이너한 항목을 떨군다
+- 레포에 PR이 1건뿐이면 이 블록은 생략 (해당 PR의 "작업 내용"과 중복)
+
+작성 가이드:
+- 시간 순서가 아니라 **테마/모듈 단위**로 묶기
+  - 예: `인증 흐름 리팩터링 — Interceptor·Authenticator 책임 분리 및 게스트 측정 카운트 도메인 적용 (#397, #408)`
+- 각 불릿 끝에 근거가 된 PR 번호를 `(#123, #124)` 형태로 표기 — 추적 가능성 확보
+- 릴리즈/디펜던시 범프성 PR은 별도 항목으로 묶거나 생략
+- 어조는 PR별 작업 내용과 동일한 명사형 종결
 
 ### 4. Markdown 렌더링
 
@@ -68,7 +152,8 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 
 > Author: @{login}
 > Generated: {now ISO8601}
-> Scope: {org or repo list}
+> Scope: {org or repo list, or "전체"}
+> 집계 기준: 본인이 생성한 PR(merged/open/closed/draft) — PR 외 직접 push 커밋은 포함되지 않음.
 
 ## 한눈에 보기
 
@@ -83,26 +168,39 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 ## 레포별 활동
 
 ### {owner/repo}
-- PR: {N}개 (merged {M})
+
+- PR: {N}개 (merged {M} / open {O} / closed {C} / draft {D})
 - 변경: +{add} / -{del} (파일 {f}개)
 - 커밋: {c}개
-- 주요 PR: [{title}]({url})
 
-## PR 상세
+**기간 작업 요약**
 
-### Merged ({M}개)
-| 날짜 | 레포 | 제목 | 변경 |
-|---|---|---|---|
-| {mergedAt} | {repo} | [{title}]({url}) (#{num}) | +{add}/-{del} |
+- {테마 묶음 1} (#PR, #PR)
+- {테마 묶음 2} (#PR)
+- {단발 작업} (#PR)
+- ... (작업 크기에 따라 2~20 불릿)
 
-### Open ({O}개)
-...
+**PR 목록**
 
-### Closed (not merged) ({C}개)
+#### [{title}]({url}) (#{number})
+- 변경: +{add}/-{del} (파일 {f}개) · {mergedAt or createdAt} {state}
+- 작업 내용:
+  - {요약 불릿 1}
+  - {요약 불릿 2}
+  - {요약 불릿 3}
+
+#### [{다음 PR title}]({url}) (#{number})
 ...
 ```
 
-빈 섹션(0개)은 렌더링하지 말 것.
+세부 규칙:
+- 레포 정렬: 활동량(변경 라인 합) 내림차순. 동률이면 PR 수 → 알파벳 순
+- 레포 내 PR 정렬: `mergedAt` → `closedAt` → `createdAt` 순으로 가장 최신이 위
+- PR 상태 표기: 메타라인 끝의 ` · {state}` 자리에 노출 (예: `· 2026-05-15 merged`, `· 2026-05-10 open`, `· 2026-05-08 closed`, `· 2026-05-05 draft`)
+- 빈 카테고리(0개)는 통계 블록에서 자연스럽게 생략
+- 활동이 0건인 레포는 §4에 나타나지 않음 (year 모드의 "활동 없음" 보고서는 §7 규칙 그대로)
+- 레포에 PR이 1건뿐이면 "기간 작업 요약" 블록은 생략 (PR "작업 내용"과 중복)
+- 별도 `## PR 상세` 섹션은 두지 않음 — 모든 PR은 레포별 활동 하위 `#### PR` 블록으로만 노출
 
 ### 5. 저장
 
@@ -110,25 +208,67 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 - 현재 디렉토리가 이미 `PerformanceSummary` 하위면 그대로 사용
 - 디렉토리 없으면 `mkdir -p`
 - 같은 파일이 있으면 사용자에게 덮어쓰기 여부 확인
-- `--output` 지정 시 그 경로 그대로 사용
+- `--output` 지정 시 그 경로 그대로 사용 (단일 보고서 모드 한정)
 
 ### 6. 결과 보고
 
-- 저장 경로
+- 저장 경로 (year 모드는 13개 경로 전체 또는 디렉토리)
 - 핵심 수치(총 PR/merged/추가-삭제 라인)
 - 다음 행동 제안 (예: 다른 기간 추가 조회)
+
+### 7. year 모드 추가 처리
+
+year 모드일 때만 §2~§5에 더해 다음을 수행:
+
+1. **PR 수집 최적화**: 가능하면 1년치(`YYYY-01-01..YYYY-12-31`)를 한 번에 받고, `mergedAt`(없으면 `createdAt`) 기준으로 월별 버킷팅. 1000건 초과 위험 시 월별로 분할 호출 fallback.
+2. **월별 보고서 12개 생성**: 각 월(`(YYYY-MM-01, YYYY-MM-말일)`)마다 §3~§4를 돌려 `PerformanceSummary/{YYYY}/{YYYY-MM-01}_{YYYY-MM-말일}.md` 저장. 활동이 0건인 달도 빈 보고서를 만들지 말고 `[활동 없음]` 한 줄짜리로 생성 (해당 월에 일했는지 자체가 정보).
+3. **연간 종합 보고서 1개 생성**: §4 템플릿으로 1년치 집계를 작성하고, **마지막에 "월별 추이" 섹션 추가** (§8 참조). 경로: `PerformanceSummary/{YYYY}/{YYYY}-01-01_{YYYY}-12-31.md`.
+4. **검증**: 월별 합계 = 연간 합계여야 함. 불일치 시 사용자에게 경고.
+5. `--output`은 무시하고 경고 출력 (year 모드는 다중 파일 출력이라 단일 경로로 처리 불가).
+
+### 8. 월별 추이 섹션 (year 모드 연간 보고서 전용)
+
+연간 보고서 끝부분에 다음 표를 추가:
+
+```markdown
+## 월별 추이
+
+| 월 | PR | merged | +라인 | -라인 | 커밋 |
+|---|---|---|---|---|---|
+| 01 | 5 | 4 | +1,234 | -120 | 18 |
+| 02 | 0 | 0 | +0 | -0 | 0 |
+| ... | | | | | |
+| 12 | 8 | 7 | +2,100 | -340 | 24 |
+| **합계** | **N** | **M** | **+add** | **-del** | **C** |
+```
+
+활동이 0건인 달도 0으로 표시(생략 금지).
 
 ## 사용 예시
 
 ```
-/perf-summary --org deep-medi-Android --since 2025-01-01 --until 2025-12-31
-/perf-summary --repo deep-medi-Android/some-repo --since 2025-Q1 --until 2025-Q2
+/perf-summary --year 2025
+/perf-summary --year 2025 --org deep-medi-Android
+/perf-summary --month 2026-03
+/perf-summary --month 2026-03 --repo deep-medi-Android/some-repo
+/perf-summary --since 2025-01-01 --until 2025-03-15
+/perf-summary --since 2025-01-01 --until 2025-03-15                 # org/repo 생략 = 전체
+
+# --since 단축형 / --until 생략
+/perf-summary --since 2026                                          # 2026-01-01 ~ 오늘
+/perf-summary --since 2026-03                                       # 2026-03-01 ~ 오늘
+/perf-summary --since 2026-03-10                                    # 2026-03-10 ~ 오늘
+/perf-summary --since 2026-03 --until 2026-04                       # 2026-03-01 ~ 2026-04-30
+/perf-summary --since 2025 --until 2025                             # 2025-01-01 ~ 2025-12-31, 단일 보고서
+
 /perf-summary --org deep-medi-backend,deep-medi-Android,deep-medi-SDK --since 2026-01-01 --until 2026-05-15
 ```
 
+> `--year 2025`(월별 분할 + 연간 종합)와 `--since 2025 --until 2025`(같은 1년 기간이지만 단일 보고서) 는 출력 구조가 다르다.
+
 ## 주의사항
 
-- **Search API 한도**: `gh search prs`는 결과 최대 1000건. 기간이 길고 활동이 많으면 분기/월 단위로 쪼개서 조회 후 합산
+- **Search API 한도**: `gh search prs`는 결과 최대 1000건. 기간이 길고 활동이 많으면 분기/월 단위로 쪼개서 조회 후 합산 (year 모드는 자동 처리)
 - **Private repo**: `gh auth login --scopes repo` 로 권한이 있어야 보임
 - **시간대**: GitHub은 UTC 기준. 한국 시간으로 보고싶다면 사용자에게 확인
 - **변경 라인 통계의 한계**: PR에 포함되지 않은 직접 push 커밋은 카운팅 안 됨. PR 워크플로 기준이라는 점을 보고서에 명시
@@ -136,4 +276,4 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 
 ## 비실행 모드
 
-사용자가 단순 미리보기만 원하면 `--dry-run`처럼 동작 — 파일 저장 없이 콘솔에만 출력. 사용자가 `--output none`이나 "저장하지 말고 보여만 줘"라고 하면 이 모드 적용.
+사용자가 단순 미리보기만 원하면 `--dry-run`처럼 동작 — 파일 저장 없이 콘솔에만 출력. 사용자가 `--output none`이나 "저장하지 말고 보여만 줘"라고 하면 이 모드 적용. year 모드에서는 월별 12개 + 연간 1개 미리보기를 모두 출력(길어질 수 있음).

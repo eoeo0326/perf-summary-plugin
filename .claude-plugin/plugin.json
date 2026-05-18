@@ -1,7 +1,7 @@
 {
   "name": "perf-summary",
   "description": "GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직별로 집계해 이력서·성과 평가용 Markdown 보고서를 생성합니다.",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "author": {
     "name": "eoeo0326-deepmedi",
     "url": "https://github.com/eoeo0326-deepmedi"

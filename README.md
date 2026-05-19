@@ -32,6 +32,11 @@ claude --plugin-dir .
 
 ```
 /perf-summary --year 2025
+
+# 또는 모드별 단축 명령 (Tab 자동완성 시 인자 placeholder 노출)
+/perf-summary:year 2025
+/perf-summary:month 2026-04
+/perf-summary:since 2026-04-15 --until 2026-05-10
 ```
 
 ## 설치

@@ -40,16 +40,11 @@ claude --plugin-dir .
 
 ## 설치
 
-Claude Code 세션에서 다음 두 줄로 설치:
+#### 마켓플레이스 등록
 
 ```
 /plugin marketplace add eoeo0326/perf-summary-plugin
-/plugin install perf-summary@perf-summary-marketplace
 ```
-
-첫 줄은 이 GitHub 레포를 마켓플레이스로 등록하고, 두 번째 줄이 실제 플러그인을 설치한다.
-
-업데이트는 `/plugin marketplace update perf-summary-marketplace` 후 `/plugin update perf-summary@perf-summary-marketplace`.
 
 <details>
 <summary>또는 settings.json에 사전 등록</summary>
@@ -73,11 +68,38 @@ Claude Code 세션에서 다음 두 줄로 설치:
 
 </details>
 
+#### 플러그인 설치
+
+```
+/plugin install perf-summary@perf-summary-marketplace
+```
+
+#### 플러그인 Reload
+
+```
+/reload-plugins
+```
+
+## 업데이트
+
+#### 마켓플레이스 업데이트
+
+```
+/plugin marketplace update perf-summary-marketplace
+```
+
+#### 플러그인 업데이트
+
+```
+/plugin update perf-summary@perf-summary-marketplace
+```
+
 ## 사용 방법
 
 호출은 두 가지 방식 중 편한 쪽:
 
-- **모드별 단축 명령** — `/perf-summary:year`, `/perf-summary:month`, `/perf-summary:since`. 슬래시 입력 후 Tab/Space 로 명령을 선택하면 인자 placeholder 가 회색 hint 로 노출됨
+- **모드별 단축 명령** — `/perf-summary:year`, `/perf-summary:month`, `/perf-summary:since`. 슬래시 입력 후 Tab/Space 로 명령을 선택하면 인자
+  placeholder 가 회색 hint 로 노출됨
 - **단일 진입점** — `/perf-summary --year`, `--month`, `--since` 형식. `--year` / `--month` / `--since` 중 **정확히 하나**를 지정
 
 두 방식은 동일하게 동작하며, 이하 예시는 단축 명령 형태로 표기.
@@ -86,11 +108,11 @@ Claude Code 세션에서 다음 두 줄로 설치:
 
 모든 모드에 함께 쓸 수 있는 보조 인자.
 
-| 인자 | 필수 | 설명 |
-|---|---|---|
-| `--org <org>` | ❌ | 조직명. 쉼표로 여러 개 가능. 미지정 시 본인이 PR을 작성한 **모든 조직** |
-| `--repo <owner/repo>` | ❌ | 특정 레포만 집계. `--org` 보다 우선. 미지정 시 **모든 레포** |
-| `--output <path>` | ❌ | 출력 경로 강제 지정 (단일 보고서 모드 한정. 연간 모드에선 무시) |
+| 인자                    | 필수 | 설명                                            |
+|-----------------------|----|-----------------------------------------------|
+| `--org <org>`         | ❌  | 조직명. 쉼표로 여러 개 가능. 미지정 시 본인이 PR을 작성한 **모든 조직** |
+| `--repo <owner/repo>` | ❌  | 특정 레포만 집계. `--org` 보다 우선. 미지정 시 **모든 레포**     |
+| `--output <path>`     | ❌  | 출력 경로 강제 지정 (단일 보고서 모드 한정. 연간 모드에선 무시)        |
 
 ### 연간 모드 — `/perf-summary:year YYYY`
 
@@ -120,10 +142,10 @@ Claude Code 세션에서 다음 두 줄로 설치:
 
 자유 기간을 단일 보고서로 생성. `--since` 와 `--until` 모두 **연/월/일 부분 형식**을 받으며, `--until` 은 생략 가능 (생략 시 오늘).
 
-| 인자 | 필수 | 설명 |
-|---|---|---|
-| 첫 번째 positional / `--since YYYY[-MM[-DD]]` | ✅ | 시작일. `YYYY` → 1/1, `YYYY-MM` → 해당 월 1일, `YYYY-MM-DD` → 그대로 |
-| `--until YYYY[-MM[-DD]]` | ❌ | 종료일. `YYYY` → 12/31, `YYYY-MM` → 해당 월 말일, `YYYY-MM-DD` → 그대로. **미지정 시 오늘** |
+| 인자                                         | 필수 | 설명                                                                         |
+|--------------------------------------------|----|----------------------------------------------------------------------------|
+| 첫 번째 positional / `--since YYYY[-MM[-DD]]` | ✅  | 시작일. `YYYY` → 1/1, `YYYY-MM` → 해당 월 1일, `YYYY-MM-DD` → 그대로                 |
+| `--until YYYY[-MM[-DD]]`                   | ❌  | 종료일. `YYYY` → 12/31, `YYYY-MM` → 해당 월 말일, `YYYY-MM-DD` → 그대로. **미지정 시 오늘** |
 
 ```
 /perf-summary:since 2025-03                          # 2025-03-01 ~ 오늘
@@ -153,8 +175,8 @@ PerformanceSummary/
 - **연간 종합** *(연간 모드 한정)* — 1년 흐름을 1~2 단락 서사형 회고로 정리 + 핵심 성취 5~10 항목
 - **이력서 항목 추천** — 모든 보고서에 포함. 이력서·평가 자료에 그대로 올릴 만한 4~8 굵직한 성취. 정량 지표(라인·PR 수·도메인)와 출처 PR 번호 동반
 - **레포별 활동** — 변경량 내림차순으로 정렬된 레포별 통계
-  - **기간 작업 요약** — 해당 기간 동안 그 레포에서 한 굵직한 작업을 테마별로 묶은 종합 요약 (PR 1건뿐이면 생략)
-  - **PR 목록** — 기본은 접힘(`<details>`)으로 노출, 필요 시 펼쳐서 확인. PR별 변경 라인·상태와 함께 **PR 본문/커밋 메시지에서 추출한 "작업 내용" 2~4 불릿** 첨부
+    - **기간 작업 요약** — 해당 기간 동안 그 레포에서 한 굵직한 작업을 테마별로 묶은 종합 요약 (PR 1건뿐이면 생략)
+    - **PR 목록** — 기본은 접힘(`<details>`)으로 노출, 필요 시 펼쳐서 확인. PR별 변경 라인·상태와 함께 **PR 본문/커밋 메시지에서 추출한 "작업 내용" 2~4 불릿** 첨부
 - **월별 추이** *(연간 모드 한정)* — 연간 종합 보고서 끝에 월별 PR/merged/추가·삭제 라인/커밋 합계 표
 
 `연간 종합` 과 `이력서 항목 추천` 은 PR 본문/커밋 메시지에서 직접 정량 지표와 함께 추출한 narrative 라, 이력서·평가 자료에 그대로 옮겨 쓸 수 있도록 작성된다.

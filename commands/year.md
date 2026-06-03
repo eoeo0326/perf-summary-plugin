@@ -1,6 +1,6 @@
 ---
 description: 해당 연도(1/1~12/31)를 월별 12개 + 연간 1개 보고서로 분할 생성
-argument-hint: <YYYY> [--org <org>] [--repo <owner/repo>]
+argument-hint: <YYYY> [--org <org>] [--repo <owner/repo>] [--account <login>]
 ---
 
 perf-summary skill 을 year 모드로 실행한다.

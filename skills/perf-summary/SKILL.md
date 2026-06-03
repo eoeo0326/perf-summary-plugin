@@ -18,6 +18,7 @@ description: GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직
 | `--until YYYY[-MM[-DD]]` | ❌ | 집계 종료일(포함). `YYYY`→해당 연 12/31, `YYYY-MM`→해당 월 말일(윤년 자동), `YYYY-MM-DD`→그대로. **미지정 시 오늘** |
 | `--org <org>` | ❌ | 조직명. 쉼표로 여러 개 가능 (`deep-medi-backend,deep-medi-Android`). **미지정 시 전체 조직** |
 | `--repo <owner/repo>` | ❌ | 특정 레포만 집계. `--org`보다 우선. **미지정 시 전체 레포** |
+| `--account <login>[,<login>]` | ❌ | 집계 대상 gh 계정 login. 쉼표로 여러 개. **미지정 시 `gh auth status` 의 모든 인증 계정 자동 집계** |
 | `--output <path>` | ❌ | 단일 보고서일 때만 유효. `--year` 모드에선 무시(경고만 출력) |
 
 ### 인자 검증
@@ -31,6 +32,7 @@ description: GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직
 - 부분 형식은 §0에서 정규화한 뒤 `since <= until` 검증
 - `--until` 생략 시 `UNTIL=$(date '+%Y-%m-%d')` (오늘, 로컬 타임존)
 - `--org`/`--repo`가 둘 다 비어 있어도 **묻지 말고 전체 조회 모드로 진행** (author 필터만 사용)
+- `--account`: 쉼표 split 후 각 항목 trim, 빈 값 거부, 중복 제거. 지정 login 이 `gh auth status` 에 없으면 에러로 종료 (`login=\`xxx\` 가 gh 에 인증되어 있지 않습니다. \`gh auth login -u xxx\` 후 재시도`)
 
 ## 실행 순서
 
@@ -66,12 +68,119 @@ LAST=$(date -j -f '%Y-%m-%d' "${YYYY}-${MM}-01" -v+1m -v-1d '+%Y-%m-%d')
 
 ### 1. 사전 점검
 
-- `gh auth status` 로 인증 확인
-- `gh api user --jq '.login'` 로 현재 로그인 사용자(`$LOGIN`) 획득
 - 인자 검증(위 규칙)
 - 기간이 너무 길어 1000건을 초과할 위험이 있으면 경고
+- `gh auth status` 로 인증 확인 + **모든 인증 계정 감지** + `TARGET_LOGINS` 결정
+
+#### 1-A. 다중 계정 감지 절차
+
+`gh auth status` 출력은 다음과 같은 호스트 블록 구조를 가진다 (예시):
+
+```
+github.com
+  ✓ Logged in to github.com account eoeo0326-deepmedi (keyring)
+    - Active account: true
+    - ...
+  ✓ Logged in to github.com account eoeo0326 (keyring)
+    - Active account: false
+```
+
+파싱 규칙:
+- `github.com` 으로 시작하는 라인 ~ 다음 호스트 라인(또는 EOF)까지를 **host_block 으로 한정** (GHE 호스트 섹션 제외)
+- host_block 안에서 `✓ Logged in to github.com account <login>` 패턴을 모두 수집해 `ALL_LOGINS` 배열에 push
+- 각 login 의 sub-block(다음 `Logged in to` 또는 host_block 끝까지) 안에 `Active account: true` 가 있으면 그 login 을 `ORIGINAL_ACTIVE` 로 기록
+- `Active account:` 라인 자체가 없는 환경(단일 계정 / 구버전 gh)이면 `ALL_LOGINS[0]` 를 폴백
+
+구체 구현 (bash + awk):
+
+```bash
+# 인증 자체가 안 되어 있으면 즉시 종료
+gh auth status >/dev/null 2>&1 || { echo "gh 인증 필요 (gh auth login)"; exit 1; }
+
+ALL_LOGINS=( $(gh auth status 2>&1 \
+  | awk '
+      /^github\.com/      { inhost=1; next }
+      /^[^[:space:]]/     { inhost=0 }
+      inhost && /Logged in to github\.com account/ {
+        for (i=1; i<=NF; i++) if ($i=="account") { print $(i+1); break }
+      }') )
+
+ORIGINAL_ACTIVE=$(gh auth status 2>&1 \
+  | awk '
+      /^github\.com/      { inhost=1; next }
+      /^[^[:space:]]/     { inhost=0 }
+      inhost && /Logged in to github\.com account/ {
+        for (i=1; i<=NF; i++) if ($i=="account") { last=$(i+1); break }
+      }
+      inhost && /Active account: true/ { print last; exit }')
+[[ -z "$ORIGINAL_ACTIVE" && ${#ALL_LOGINS[@]} -gt 0 ]] && ORIGINAL_ACTIVE="${ALL_LOGINS[0]}"
+
+# --account flag 처리
+if [[ -n "$ACCOUNT_FLAG" ]]; then
+  IFS=',' read -ra REQ <<< "$ACCOUNT_FLAG"
+  TARGET_LOGINS=()
+  declare -A SEEN=()
+  for r in "${REQ[@]}"; do
+    r="${r//[[:space:]]/}"; [[ -z "$r" ]] && continue
+    [[ -n "${SEEN[$r]+x}" ]] && continue
+    found=0; for a in "${ALL_LOGINS[@]}"; do [[ "$a" == "$r" ]] && { found=1; break; }; done
+    [[ "$found" == 1 ]] || { echo "login=\`$r\` 가 gh 에 인증되어 있지 않습니다. \`gh auth login -u $r\` 후 재시도"; exit 1; }
+    TARGET_LOGINS+=("$r"); SEEN[$r]=1
+  done
+else
+  TARGET_LOGINS=( "${ALL_LOGINS[@]}" )
+fi
+[[ ${#TARGET_LOGINS[@]} -eq 0 ]] && { echo "인증된 github.com 계정이 없습니다"; exit 1; }
+
+# 작업 디렉토리 + 복원 trap (필요할 때만)
+TMP=$(mktemp -d)
+NEED_RESTORE=0
+if [[ ${#TARGET_LOGINS[@]} -gt 1 || "${TARGET_LOGINS[0]}" != "$ORIGINAL_ACTIVE" ]]; then
+  NEED_RESTORE=1
+fi
+cleanup() {
+  rm -rf "$TMP"
+  if [[ "$NEED_RESTORE" == 1 && -n "$ORIGINAL_ACTIVE" ]]; then
+    gh auth switch -u "$ORIGINAL_ACTIVE" -h github.com >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+echo "감지된 계정: ${ALL_LOGINS[*]} (active=$ORIGINAL_ACTIVE)"
+echo "집계 대상:   ${TARGET_LOGINS[*]}"
+```
+
+#### 1-B. 다중 계정 처리 노트
+
+- 다중 계정(또는 active 가 아닌 단일 계정 지정) 시에만 `gh auth switch` 가 일어남. 단일 계정 환경은 동작 변화 없음
+- `trap` 이 EXIT/INT/TERM 모두 잡으므로 `Ctrl-C` 로 끊겨도 원래 active 로 복원되고 `$TMP` 도 정리됨
+- `--account` 로 명시 지정 시 그 계정만 사용 (1개라도 그대로 동작)
 
 ### 2. PR 수집
+
+**다중 계정 시 각 계정 토큰 컨텍스트에서 검색하는 이유**: 한 계정의 토큰은 다른 계정만 권한이 있는 private repo 의 PR 을 볼 수 없다. 누락을 막으려면 `TARGET_LOGINS` 각각으로 `gh auth switch` 후 그 토큰으로 검색해야 한다.
+
+전체 흐름:
+
+```bash
+CURRENT_ACTIVE="$ORIGINAL_ACTIVE"
+
+for LOGIN in "${TARGET_LOGINS[@]}"; do
+  if [[ "$CURRENT_ACTIVE" != "$LOGIN" ]]; then
+    gh auth switch -u "$LOGIN" -h github.com \
+      || { echo "gh auth switch 실패: $LOGIN"; exit 1; }
+    CURRENT_ACTIVE="$LOGIN"
+  fi
+
+  # 아래 모드별 분기 — 기존 단일 계정 본문과 동일하되 author 자리에 $LOGIN 사용
+  # 결과는 PR 객체 배열 JSON 으로 $TMP/prs-${LOGIN}.json 저장
+done
+
+# URL 기준 dedup (이론상 author 가 다르면 PR 도 다르므로 중복 없음 — 안전망)
+MERGED_PRS=$(jq -s 'add | unique_by(.url)' "$TMP"/prs-*.json)
+```
+
+각 계정 루프 안에서 실행할 모드별 호출:
 
 레포 지정 시:
 ```bash
@@ -102,6 +211,8 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 - `commits` 객체에는 `messageHeadline`·`messageBody` 가 포함됨 (별도 호출 불필요)
 - 너무 많으면 `xargs -P 4` 같은 병렬 호출로 속도 개선
 - merged 여부는 `mergedAt != null` 로 판정 (state는 closed지만 mergedAt이 있으면 merged)
+- 한 계정에서 PR 0건이어도 `$TMP/prs-${LOGIN}.json` 에는 빈 배열 `[]` 를 저장한다 — 다음 단계의 `jq -s 'add'` 가 빈 배열을 안전하게 흡수해 dedup 단계가 깨지지 않음
+- 1000건 한도는 **각 계정별로** 적용되므로 합산 후 1000 초과해도 무방. year 모드의 분기/월 분할 fallback 도 계정별 루프 안에서 그대로 작동
 
 #### 2-1. 입력 다이어트 (모델 컨텍스트 진입 전 1회 가공)
 
@@ -253,10 +364,11 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 ```markdown
 # Performance Summary ({since} ~ {until})
 
-> Author: @{login}
+> Author: @{login1}, @{login2}, ...
 > Generated: {now ISO8601}
 > Scope: {org or repo list, or "전체"}
 > 집계 기준: 본인이 생성한 PR(merged/open/closed/draft) — PR 외 직접 push 커밋은 포함되지 않음.
+> 다중 계정 통합 집계 — {N}개 계정 (@{login1}, @{login2})
 
 **TL;DR** — {§3-4 가이드에 따른 1~2문장 요약}
 
@@ -313,6 +425,8 @@ gh pr view "$URL" --json number,title,state,createdAt,mergedAt,closedAt,addition
 ```
 
 세부 규칙:
+- **header `Author:` 라인**은 `TARGET_LOGINS` 순서대로 `, ` 로 join. 1개면 결과적으로 기존과 동일하게 `Author: @{login}` 한 줄
+- **header `다중 계정 통합 집계 — ...` 라인**은 **`TARGET_LOGINS.length >= 2` 일 때만** 추가한다. `--account` 로 단일 지정한 경우(N=1)도 생략 (기존 단일 계정 동작과 완전히 동일하게 유지)
 - **TL;DR 라인**은 헤더 quote 블록 바로 다음·"📊 한눈에 보기" 표 위에 둔다. 표와의 간격은 빈 줄 1개. 작성 가이드는 §3-4 참조
 - **이모지 부착은 §3-5 매핑을 단일 출처로** 따른다. 표에 없는 이모지는 사용하지 않는다
 - 레포 정렬: 활동량(변경 라인 합) 내림차순. 동률이면 PR 수 → 알파벳 순

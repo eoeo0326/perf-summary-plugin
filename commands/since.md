@@ -1,6 +1,6 @@
 ---
 description: 시작일부터 종료일(생략 시 오늘)까지의 단일 보고서 생성
-argument-hint: <YYYY[-MM[-DD]]> [--until <YYYY[-MM[-DD]]>] [--org <org>] [--repo <owner/repo>]
+argument-hint: <YYYY[-MM[-DD]]> [--until <YYYY[-MM[-DD]]>] [--org <org>] [--repo <owner/repo>] [--account <login>]
 ---
 
 perf-summary skill 을 range 모드로 실행한다.

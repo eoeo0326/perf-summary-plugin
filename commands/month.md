@@ -1,6 +1,6 @@
 ---
 description: 해당 월 1일~말일(현재 달이면 오늘까지)을 단일 보고서로 생성
-argument-hint: <YYYY-MM> [--org <org>] [--repo <owner/repo>]
+argument-hint: <YYYY-MM> [--org <org>] [--repo <owner/repo>] [--account <login>]
 ---
 
 perf-summary skill 을 month 모드로 실행한다.

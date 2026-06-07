@@ -1,0 +1,40 @@
+{
+  "name": "perf-summary",
+  "version": "0.7.0",
+  "description": "GitHub 활동을 기간/조직별로 집계해 이력서·성과 평가용 Markdown 보고서를 생성합니다.",
+  "author": {
+    "name": "eoeo0326-deepmedi",
+    "url": "https://github.com/eoeo0326-deepmedi"
+  },
+  "homepage": "https://github.com/eoeo0326-deepmedi/perf-summary-plugin",
+  "repository": "https://github.com/eoeo0326-deepmedi/perf-summary-plugin",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "performance",
+    "summary",
+    "resume",
+    "portfolio",
+    "gh-cli"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "perf-summary",
+    "shortDescription": "GitHub 활동 기반 성과 보고서 생성",
+    "longDescription": "gh CLI로 작성자가 생성한 PR과 커밋 통계를 기간, 조직, 레포 기준으로 집계하고 이력서·성과 평가에 활용할 수 있는 Markdown 보고서를 생성합니다.",
+    "developerName": "eoeo0326-deepmedi",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/eoeo0326-deepmedi/perf-summary-plugin",
+    "defaultPrompt": [
+      "$perf-summary --year 2025",
+      "$perf-summary --month 2026-05",
+      "$perf-summary --since 2025-03 --until 2025-06"
+    ],
+    "brandColor": "#2563EB",
+    "screenshots": []
+  }
+}

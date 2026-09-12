@@ -1,0 +1,37 @@
+{
+  "name": "perf-summary-mcp",
+  "version": "1.1.0",
+  "description": "Local MCP server for GitHub activity and performance reports using your gh accounts",
+  "type": "module",
+  "bin": { "perf-summary-mcp": "dist/mcp/server.js" },
+  "files": ["dist", "resources", "README.md", "LICENSE"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "check": "npm run typecheck && npm test && npm run build && node scripts/check-release.mjs",
+    "test:package": "node scripts/test-package.mjs",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check && npm run test:package"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/eoeo0326/perf-summary-plugin.git" },
+  "homepage": "https://github.com/eoeo0326/perf-summary-plugin#readme",
+  "bugs": { "url": "https://github.com/eoeo0326/perf-summary-plugin/issues" },
+  "author": "eoeo0326-deepmedi",
+  "license": "MIT",
+  "keywords": ["mcp", "github", "performance", "resume", "gh-cli", "claude", "codex"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "luxon": "^3.7.2",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@types/luxon": "^3.7.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^6.0.0"
+  }
+}

@@ -11,7 +11,7 @@ for (const name of ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json']) 
 const codex = await readJson('.codex-plugin/plugin.json');
 assert.equal(codex.mcpServers, './.mcp.json');
 const mcp = await readJson('.mcp.json');
-assert.deepEqual(mcp.mcpServers['perf-summary'].args, ['-y', pkg.name + '@' + pkg.version]);
+assert.deepEqual(mcp.mcpServers['perf-summary'].args, ['-y', 'https://registry.npmjs.org/' + pkg.name + '/-/' + pkg.name + '-' + pkg.version + '.tgz']);
 assert.equal(mcp.mcpServers['perf-summary'].type, 'stdio');
 const entry = await readFile(new URL('../' + pkg.bin['perf-summary-mcp'], import.meta.url), 'utf8');
 assert.ok(entry.startsWith('#!/usr/bin/env node\n'));

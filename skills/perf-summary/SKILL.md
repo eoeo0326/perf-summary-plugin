@@ -42,13 +42,13 @@ PR 생성일과 날짜 경계는 MCP가 실행되는 PC 시간대 기준이며, 
 패키지 게시 후 Codex:
 
 ```bash
-codex mcp add perf-summary -- npx -y perf-summary-mcp@1.1.0
+codex mcp add perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz
 ```
 
 패키지 게시 후 Claude Code:
 
 ```bash
-claude mcp add --transport stdio --scope user perf-summary -- npx -y perf-summary-mcp@1.1.0
+claude mcp add --transport stdio --scope user perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz
 ```
 
 플러그인을 통해 MCP가 이미 등록되어 있으면 수동 등록을 중복하지 않는다. 게시 전 로컬 개발은 README의 빌드 파일 직접 등록 절차를 따른다.

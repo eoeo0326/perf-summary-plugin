@@ -4,6 +4,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
@@ -80,6 +82,48 @@ try {
       assert.equal(stderr, '', 'Unexpected MCP stderr output: ' + stderr);
     } finally { await client.close(); }
   }
+  // Serve the exact packed artifact like the npm registry. The source fixture has
+  // the same name/version but no build or dependencies: name-based npx resolution
+  // must not replace the requested archive with that local package.
+  const archive = await readFile(path.join(temp, packed.filename));
+  const archivePath = '/' + pkg.name + '/-/' + packed.filename;
+  const registry = createServer((request, response) => {
+    if (request.url !== archivePath) { response.writeHead(404).end(); return; }
+    response.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': archive.length });
+    response.end(archive);
+  });
+  registry.listen(0, '127.0.0.1');
+  await once(registry, 'listening');
+  try {
+    const source = path.join(temp, 'unbuilt source');
+    const nested = path.join(source, 'nested');
+    await mkdir(nested, { recursive: true });
+    await writeFile(path.join(source, 'package.json'), JSON.stringify(pkg));
+    const config = JSON.parse(await readFile(path.join(root, '.mcp.json'), 'utf8'));
+    const args = config.mcpServers['perf-summary'].args;
+    const remote = new URL(args[1]);
+    assert.equal(remote.pathname, archivePath);
+    const url = 'http://127.0.0.1:' + registry.address().port + remote.pathname;
+    for (const cwd of [working, source, nested, root]) {
+      const client = new Client({ name: 'npx-source-regression', version: '1.0.0' });
+      const transport = new StdioClientTransport({
+        command: process.execPath,
+        args: [npmCli, 'exec', args[0], '--cache', path.join(temp, 'npm-cache'), '--', url],
+        cwd, stderr: 'pipe',
+      });
+      try {
+        await client.connect(transport);
+        assert.equal(client.getServerVersion().version, pkg.version);
+        assert.equal((await client.listTools()).tools.length, 6);
+        const context = await client.callTool({ name: 'get_report_context', arguments: { mode: 'month' } });
+        assert.equal(context.isError, undefined);
+        assert.ok(context.structuredContent.guidelines.length > 0);
+      } finally { await client.close(); }
+    }
+  } finally {
+    await new Promise((resolve, reject) => registry.close(error => error ? reject(error) : resolve()));
+  }
+  console.log('Archive-based npm exec verified in ordinary, unbuilt source, nested source and built source directories.');
   console.log('Packed installation, stdio MCP, resources, prompts and report writes verified (' +
     packed.files.length + ' files, ' + packed.size + ' bytes).');
 } finally {

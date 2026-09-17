@@ -1,6 +1,6 @@
 {
   "name": "perf-summary",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "GitHub 활동을 기간/조직별로 집계해 이력서·성과 평가용 Markdown 보고서를 생성합니다.",
   "author": {
     "name": "eoeo0326-deepmedi",

@@ -2,7 +2,7 @@
 
 GitHub PR 활동을 수집·집계해 이력서와 성과 평가용 Markdown 보고서를 만드는 **로컬 MCP 서버 + Claude Code / Codex 플러그인**입니다.
 
-- 공개 npm 패키지: [`perf-summary-mcp`](https://www.npmjs.com/package/perf-summary-mcp), 버전 `1.1.0`
+- 공개 npm 패키지: [`perf-summary-mcp`](https://www.npmjs.com/package/perf-summary-mcp), 버전 `1.1.1`
 - 실행: 사용자 PC의 Node.js 프로세스, stdio MCP. 운영 서버·HTTP 포트 없음
 - 인증: 기존 `gh auth login` 재사용, 다중 계정 지원
 - 집계: 사용자 PC 시간대의 **PR 생성일** 기준
@@ -23,10 +23,12 @@ GitHub PR 활동을 수집·집계해 이력서와 성과 평가용 Markdown 보
 
 기존 플러그인이 동일 MCP를 제공하면 수동 등록을 중복하지 마세요.
 
+배포 파일(`.tgz`)의 고정 버전 URL을 지정하면 소스 저장소 안에서도 npm 캐시의 배포본을 실행합니다. `npx -y perf-summary-mcp@<버전>`은 같은 이름·버전의 소스 저장소를 이미 설치된 패키지로 인식해 `command not found`로 실패할 수 있습니다. 이 문제는 서버 시작 전 npm의 패키지 선택 단계에서 발생하므로, 아래 공통 명령을 사용하세요. 별도의 `cwd` 설정이나 홈 디렉터리 지정은 필요하지 않습니다.
+
 ### Codex CLI / 앱 / IDE
 
 ```bash
-codex mcp add perf-summary -- npx -y perf-summary-mcp@1.1.0
+codex mcp add perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz
 codex mcp list
 ```
 
@@ -35,7 +37,7 @@ codex mcp list
 ```toml
 [mcp_servers.perf-summary]
 command = "npx"
-args = ["-y", "perf-summary-mcp@1.1.0"]
+args = ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
 ```
@@ -47,7 +49,7 @@ tool_timeout_sec = 120
 ### Claude Code
 
 ```bash
-claude mcp add --transport stdio --scope user perf-summary -- npx -y perf-summary-mcp@1.1.0
+claude mcp add --transport stdio --scope user perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz
 claude mcp list
 ```
 
@@ -63,7 +65,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
     "perf-summary": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "perf-summary-mcp@1.1.0"]
+      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
     }
   }
 }
@@ -81,7 +83,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
     "perf-summary": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "perf-summary-mcp@1.1.0"]
+      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
     }
   }
 }
@@ -92,9 +94,11 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
 ### 전역 설치 / Windows / PATH
 
 ```bash
-npm install -g perf-summary-mcp@1.1.0
+npm install -g perf-summary-mcp@1.1.1
 perf-summary-mcp --version
 ```
+
+기존 MCP 등록의 `args`도 위 예시의 배포 파일 URL로 갱신하세요. 플러그인 사용자는 플러그인을 업데이트하면 공통 `.mcp.json`에 적용됩니다.
 
 전역 설치 후 MCP의 `command`를 `perf-summary-mcp`, `args`를 `[]`로 설정할 수 있습니다. `npx` 방식도 npm 캐시를 사용하므로 전역 설치가 필수는 아닙니다.
 
@@ -103,7 +107,7 @@ Windows에서 클라이언트가 `npx`를 직접 실행하지 못하면 다음 �
 ```json
 {
   "command": "cmd",
-  "args": ["/d", "/s", "/c", "npx -y perf-summary-mcp@1.1.0"]
+  "args": ["/d", "/s", "/c", "npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
 }
 ```
 
@@ -254,7 +258,7 @@ claude mcp add --transport stdio --scope user perf-summary -- node /absolute/pat
 
 ```bash
 npm pack
-npm install -g ./perf-summary-mcp-1.1.0.tgz
+npm install -g ./perf-summary-mcp-1.1.1.tgz
 perf-summary-mcp --version
 ```
 
@@ -278,7 +282,7 @@ test/               날짜·인증·페이지·취소·저장·MCP 테스트
 3. `npm whoami`로 게시 계정을 확인합니다. 인증되지 않았다면 별도 터미널에서 `npm login`을 실행합니다.
 4. `npm view perf-summary-mcp version`으로 이름 소유권·기존 버전을 확인합니다. 404만으로 이름 예약 가능성이 보장되지는 않습니다.
 5. `npm publish --access public`을 실행합니다. prepublishOnly가 검사와 실제 패키지 설치 검증을 다시 실행합니다.
-6. `npm view perf-summary-mcp@1.1.0 version` 및 게시 패키지의 npx 실행을 확인합니다.
+6. `npm view perf-summary-mcp@1.1.1 version` 및 게시 패키지의 npx 실행을 확인합니다.
 7. 그 버전을 참조하는 플러그인 변경을 커밋·푸시하고 같은 버전으로 GitHub 릴리스를 만듭니다. npm이 게시되기 전에는 플러그인 릴리스를 공개하지 않습니다.
 
 npm에는 컴파일된 dist, resources, README, LICENSE, package.json만 포함합니다. 토큰·사용자 보고서·개발 로컬 설정은 포함하지 않습니다. 자동 npm 게시 workflow는 만들지 않았으며, 게시 계정의 인증·2FA 또는 npm이 지원하는 trusted publishing 설정이 필요합니다.

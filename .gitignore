@@ -10,3 +10,6 @@ PerformanceSummary/
 dist/
 coverage/
 *.tgz
+
+# 개인 Codex 지침
+/AGENTS.override.md

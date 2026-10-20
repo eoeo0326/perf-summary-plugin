@@ -6,6 +6,7 @@ import { GithubClient } from '../src/github/client.js';
 import { CollectionManager } from '../src/collections.js';
 import { fixtureRunner } from './fixtures.js';
 import { reportUri } from '../src/reports.js';
+import { readFile } from 'node:fs/promises';
 
 test('MCP 연결·6개 도구·입력 검증·수집·resource·prompt를 실제 SDK로 호출한다', async () => {
   const { runner } = fixtureRunner();
@@ -40,6 +41,9 @@ test('MCP 연결·6개 도구·입력 검증·수집·resource·prompt를 실제
     assert.equal(resource.contents[0]!.text, (context.structuredContent as Record<string, unknown>).guidelines);
     const prompt = await client.getPrompt({ name: 'performance-summary', arguments: { mode: 'year' } });
     assert.equal(prompt.messages.length, 1);
+    const principles = await readFile(new URL('../docs/resume-writing-principles.md', import.meta.url), 'utf8');
+    assert.ok((context.structuredContent as Record<string, string>).guidelines!.includes(principles));
+    assert.ok(prompt.messages[0]?.content.type === 'text' && prompt.messages[0].content.text.includes(principles));
     assert.equal((await client.getPrompt({ name: 'performance-summary' })).messages.length, 1);
     const unknown = await client.callTool({
       name: 'get_activity', arguments: { collectionId: '00000000-0000-4000-8000-000000000000' },

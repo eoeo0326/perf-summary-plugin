@@ -1,0 +1,4 @@
+interface:
+  display_name: "이력서 작성"
+  short_description: "성과 자료 전체를 검토해 이력서 구성과 Markdown·HTML 샘플 작성"
+  default_prompt: "$resume-builder PerformanceSummary 전체를 보고 이력서 구조와 내용을 추천하고 샘플을 만들어줘."

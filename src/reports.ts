@@ -15,8 +15,11 @@ export async function getReportContext(
   mode: 'year' | 'month' | 'range' = 'range',
   guidelines = new URL('../resources/report-guidelines.md', import.meta.url),
 ) {
-  const markdown = await readFile(guidelines, 'utf8');
-  return { mode, workflow: workflowInstructions, guidelines: markdown };
+  const [markdown, principles] = await Promise.all([
+    readFile(guidelines, 'utf8'),
+    readFile(new URL('./resume-writing-principles.md', guidelines), 'utf8'),
+  ]);
+  return { mode, workflow: workflowInstructions, guidelines: markdown.trimEnd() + '\n\n' + principles };
 }
 
 function fsCode(error: unknown): string | undefined {

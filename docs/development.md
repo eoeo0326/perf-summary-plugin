@@ -21,8 +21,9 @@ npm run test:skills
 
 ```text
 src/                날짜·집계·gh 어댑터·수집 관리·저장·MCP 진입점
-resources/          정본에서 생성한 기존 MCP용 보고서 지침
-skills/             공통 정본·독립 실행 번들·보고서 지침
+resources/          정본에서 생성한 MCP용 보고서 지침·공통 원칙
+skills/             perf-summary·resume-builder 정본·독립 실행 번들
+docs/resume-writing-principles.md  두 스킬이 공유하는 작성 원칙 정본
 commands/           기존 Claude 플러그인 호환 명령
 scripts/            릴리스 정합성·실제 패키지 설치 검증
 test/               날짜·인증·페이지·취소·저장·MCP 테스트
@@ -54,7 +55,11 @@ perf-summary-mcp --version
 
 정본 지침은 `skills/perf-summary`에서, 실행 코드는 `src/cli`와 기존 공통 모듈에서 수정합니다. `npm run build:skill`이 의존성을 포함한 실행 번들·라이선스와 기존 MCP용 지침 사본을 생성합니다. 생성된 번들은 Git에 함께 포함해야 `npx skills` 설치 후 빌드 없이 실행됩니다. `npm run check:skill`과 CI가 생성물의 최신 상태를 확인합니다.
 
-`npm run test:skills`는 임시 프로젝트에서 실제 skills CLI로 Claude·Codex용 스킬을 링크·복사 설치하고, 소스 저장소·개발 의존성·MCP 없이 실행합니다. fixture 기반 CLI/MCP 동등성 검증은 `npm test`에 포함됩니다. CLI API는 [references/cli.md](../skills/perf-summary/references/cli.md)를 참고하세요.
+이력서 작성 스킬은 `skills/resume-builder`, HTML 변환 소스는 `src/resume`에서 관리합니다. 공통 원칙은 `docs/resume-writing-principles.md`만 편집합니다. 빌드가 두 스킬의 references와 MCP resources에 동일한 원칙을 복사합니다. 사본은 직접 편집하지 않습니다. `get_report_context`는 보고서 지침과 원칙 전문을 합쳐 반환하고 기존 resource·prompt도 같은 내용을 제공합니다.
+
+`resume-builder`는 에이전트가 전체 로컬 자료를 읽고 추천·근거·이력서 Markdown을 작성하는 스킬입니다. 새 GitHub 수집기나 LLM 실행 엔진을 추가하지 않습니다. HTML은 marked를 포함한 `render-resume.mjs`로 변환하고 기존 파일은 덮어쓰지 않습니다. `--no-html`은 스킬 단계에서 변환기 실행 자체를 생략합니다. 개인 산출물은 `ResumeDrafts/` 아래에 두며 Git에서 제외합니다.
+
+`npm run test:skills`는 임시 프로젝트에서 실제 skills CLI로 Claude·Codex용 두 스킬을 각각 링크·복사 설치하고, 소스 저장소·개발 의존성·MCP 없이 실행합니다. fixture 기반 CLI/MCP 동등성 검증은 `npm test`에 포함됩니다. CLI API는 [references/cli.md](../skills/perf-summary/references/cli.md)를 참고하세요.
 
 프로젝트 설치 시 Codex는 `.agents/skills`, Claude Code는 `.claude/skills`에서 스킬을 찾습니다. 실행 파일·지침·라이선스가 스킬 폴더에 포함되므로 설치 후 소스 저장소나 `node_modules`를 참조하지 않습니다.
 

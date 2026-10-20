@@ -52,6 +52,8 @@ try {
       const context = await client.callTool({ name: 'get_report_context', arguments: { mode: 'year' } });
       assert.equal(context.isError, undefined);
       assert.ok(context.structuredContent.guidelines.includes('## 📖 연간 종합'));
+      assert.ok(context.structuredContent.guidelines.includes(
+        await readFile(path.join(root, 'docs/resume-writing-principles.md'), 'utf8')));
       const resource = await client.readResource({ uri: 'perf-summary://report-guidelines' });
       assert.equal(resource.contents[0].text, context.structuredContent.guidelines);
       assert.equal((await client.getPrompt({ name: 'performance-summary' })).messages.length, 1);

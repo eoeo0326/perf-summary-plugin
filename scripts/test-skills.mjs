@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,9 @@ import { setTimeout as delay } from 'node:timers/promises';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const temp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'perf-skills-')));
 const source = path.join(root, 'skills/perf-summary');
+const resumeSource = path.join(root, 'skills/resume-builder');
+const principles = await readFile(path.join(root, 'docs/resume-writing-principles.md'), 'utf8');
+const expectedGuidelines = (await readFile(path.join(source, 'references/report-guidelines.md'), 'utf8')).trimEnd() + '\n\n' + principles;
 const npmCli = process.env.npm_execpath;
 assert.ok(npmCli, 'Run through npm run test:skills');
 const workers = [];
@@ -25,9 +28,15 @@ try {
   for (const copy of [false, true]) {
     const project = path.join(temp, copy ? '복사 설치' : '링크 설치');
     await mkdir(path.join(project, '.claude'), { recursive: true });
-    const install = node([npmCli, 'exec', '--offline', '--prefix', root, '--', 'skills', 'add', root,
-      '--skill', 'perf-summary', '-a', 'claude-code', '-a', 'codex', '-y', ...(copy ? ['--copy'] : [])], project);
-    assert.ok(!/Failed to install/.test(install), install);
+    for (const name of ['perf-summary', 'resume-builder']) {
+      const install = node([npmCli, 'exec', '--offline', '--prefix', root, '--', 'skills', 'add', root,
+        '--skill', name, '-a', 'claude-code', '-a', 'codex', '-y', ...(copy ? ['--copy'] : [])], project);
+      assert.ok(!/Failed to install/.test(install), install);
+      for (const agent of ['.claude', '.agents']) {
+        const installed = path.join(project, agent, 'skills', name);
+        assert.equal(await readFile(path.join(installed, 'references/resume-writing-principles.md'), 'utf8'), principles);
+      }
+    }
     for (const agent of ['.claude', '.agents']) {
       const installed = path.join(project, agent, 'skills/perf-summary');
       assert.equal(await readFile(path.join(installed, 'SKILL.md'), 'utf8'), await readFile(path.join(source, 'SKILL.md'), 'utf8'));
@@ -36,7 +45,12 @@ try {
       }
       const script = path.join(installed, 'scripts/perf-summary.mjs');
       const context = JSON.parse(node([script, 'get_report_context', '--input', '{"mode":"year"}'], project));
-      assert.equal(context.guidelines, await readFile(path.join(source, 'references/report-guidelines.md'), 'utf8'));
+      assert.equal(context.guidelines, expectedGuidelines);
+      const installedResume = path.join(project, agent, 'skills/resume-builder');
+      assert.equal(await readFile(path.join(installedResume, 'SKILL.md'), 'utf8'), await readFile(path.join(resumeSource, 'SKILL.md'), 'utf8'));
+      for (const resource of ['references/output-guide.md', 'agents/openai.yaml', 'scripts/render-resume.mjs', 'LICENSE', 'THIRD_PARTY_NOTICES.txt']) {
+        assert.ok((await lstat(path.join(installedResume, resource))).isFile(), resource);
+      }
     }
 
     // Move only the installed skill to an unrelated directory with no package.json,
@@ -45,6 +59,23 @@ try {
     await cp(path.join(project, '.agents/skills/perf-summary'), standalone, { recursive: true, dereference: true });
     const working = path.join(temp, copy ? '보고서 작업 2' : '보고서 작업 1');
     await mkdir(working);
+    const resumeStandalone = path.join(temp, copy ? 'resume standalone copy' : 'resume standalone link');
+    await cp(path.join(project, '.agents/skills/resume-builder'), resumeStandalone, { recursive: true, dereference: true });
+    assert.equal(await readFile(path.join(resumeStandalone, 'references/resume-writing-principles.md'), 'utf8'), principles);
+    const markdown = '# 가상 지원자\n\n> 생성 일시: 2030-02-03 09:10:11 (Asia/Seoul)\n\n## 핵심 기여\n\n- 통신 멈춤을 분석하고 전용 갱신 경로로 해결했습니다.\n';
+    const resumeInput = path.join(working, '가상 이력서.md'), resumeOutput = path.join(working, '가상 이력서.html');
+    await writeFile(resumeInput, markdown);
+    const renderer = path.join(resumeStandalone, 'scripts/render-resume.mjs');
+    assert.equal(JSON.parse(node([renderer, '--input', resumeInput, '--output', resumeOutput], working)).written, true);
+    const html = await readFile(resumeOutput, 'utf8');
+    assert.ok(html.includes('생성 일시: 2030-02-03 09:10:11 (Asia/Seoul)'));
+    assert.ok(html.includes('통신 멈춤을 분석하고 전용 갱신 경로로 해결했습니다.'));
+    assert.equal(await readFile(resumeInput, 'utf8'), markdown);
+    const disabled = path.join(working, '생성하지 않음.html');
+    assert.equal(JSON.parse(node([renderer, '--no-html', '--input', path.join(working, '없음.md'), '--output', disabled], working)).reason, 'html_disabled');
+    await assert.rejects(lstat(disabled), { code: 'ENOENT' });
+    await rm(resumeInput);
+    await rm(resumeOutput);
     const script = path.join(standalone, 'scripts/perf-summary.mjs');
     const runtime = path.join(temp, copy ? 'runtime-copy' : 'runtime-link');
     const env = { PERF_SUMMARY_RUNTIME_DIR: runtime };
@@ -83,7 +114,7 @@ try {
     const files = await readdir(runtime);
     assert.ok(files.every(name => ['ipc', 'connection.json'].includes(name)), files.join(','));
   }
-  console.log('Actual skills installation verified for Claude Code and Codex (symlink and copy).');
+  console.log('Both skills installed independently for Claude Code and Codex (symlink and copy); shared principles and standalone HTML/--no-html verified.');
   console.log('Standalone bundle, three report modes, filters, previews, IPC collection and report writes verified without MCP or repository dependencies.');
 } finally {
   for (const { script, working, env } of workers) {

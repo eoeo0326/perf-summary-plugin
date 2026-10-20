@@ -54,4 +54,13 @@ test('보고서 지침은 공통 템플릿과 연간 섹션을 패키지 리소�
   assert.match(context.guidelines, /## 📖 연간 종합/);
   assert.match(context.guidelines, /## 📊 한눈에 보기/);
   assert.match(context.guidelines, /## 📈 월별 추이/);
+  const principles = await readFile(new URL('../docs/resume-writing-principles.md', import.meta.url), 'utf8');
+  const instructions = await readFile(new URL('../skills/perf-summary/references/report-guidelines.md', import.meta.url), 'utf8');
+  assert.deepEqual(Object.keys(context).sort(), ['guidelines', 'mode', 'workflow']);
+  assert.equal(context.guidelines, instructions.trimEnd() + '\n\n' + principles);
+  for (const file of [
+    '../resources/resume-writing-principles.md',
+    '../skills/perf-summary/references/resume-writing-principles.md',
+    '../skills/resume-builder/references/resume-writing-principles.md',
+  ]) assert.equal(await readFile(new URL(file, import.meta.url), 'utf8'), principles);
 });

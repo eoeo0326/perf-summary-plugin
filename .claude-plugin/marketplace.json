@@ -8,7 +8,7 @@
     {
       "name": "perf-summary",
       "source": "./",
-      "description": "GitHub 활동(내가 작성한 PR + 커밋 통계)을 기간/조직별로 집계해 이력서·성과 평가용 Markdown 보고서를 생성합니다."
+      "description": "GitHub 성과 보고서와 PerformanceSummary 기반 이력서 구성·내용 추천 및 Markdown·HTML 샘플을 제공합니다."
     }
   ]
 }

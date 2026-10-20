@@ -177,7 +177,7 @@ Skill은 전체 옵션 해석과 공통 CLI 호출·보고서 작성을 담당�
 
 결과는 서버 프로세스 메모리에만 보관합니다. 최대 20개 결과를 보관하며, 완료 결과는 1시간 미사용 후 만료됩니다. 프로세스 종료 시 수집도 취소되고 재시작 후에는 재수집해야 합니다.
 
-MCP resource `perf-summary://report-guidelines`와 prompt `performance-summary`도 제공합니다. 이 기능을 지원하지 않는 클라이언트는 get_report_context 도구만 사용해도 됩니다. 서버는 MCP SDK v2 stdio와 기존 initialize 방식의 클라이언트를 지원합니다.
+MCP resource `perf-summary://report-guidelines`와 prompt `performance-summary`도 제공합니다. get_report_context·resource·prompt 모두 보고서 지침과 `docs/resume-writing-principles.md` 정본에서 생성된 공통 원칙 전문을 제공합니다. 기존 응답 구조와 6개 도구는 유지합니다. 이 기능을 지원하지 않는 클라이언트는 get_report_context 도구만 사용해도 됩니다. 서버는 MCP SDK v2 stdio와 기존 initialize 방식의 클라이언트를 지원합니다.
 
 ## 인증과 데이터 처리
 

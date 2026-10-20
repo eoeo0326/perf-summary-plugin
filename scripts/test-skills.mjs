@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -114,6 +114,19 @@ try {
     const files = await readdir(runtime);
     assert.ok(files.every(name => ['ipc', 'connection.json'].includes(name)), files.join(','));
   }
+  // Exercise Git's real checkout filters, including Windows-style CRLF defaults.
+  // Use the index snapshot without modifying the user's checkout or index.
+  const checkout = path.join(temp, 'CRLF checkout');
+  await mkdir(checkout);
+  const converted = spawnSync('git', ['-c', 'core.autocrlf=true', 'checkout-index', '--all',
+    '--prefix=' + checkout.replace(/\\/g, '/') + '/'], {
+    cwd: root, encoding: 'utf8', timeout: 60_000, maxBuffer: 8 * 1024 * 1024,
+  });
+  assert.equal(converted.status, 0, converted.stderr);
+  await symlink(path.join(root, 'node_modules'), path.join(checkout, 'node_modules'),
+    process.platform === 'win32' ? 'junction' : 'dir');
+  node(['scripts/build-skill.mjs', '--check'], checkout);
+  console.log('Generated bundles and shared principles verified after a core.autocrlf=true checkout.');
   console.log('Both skills installed independently for Claude Code and Codex (symlink and copy); shared principles and standalone HTML/--no-html verified.');
   console.log('Standalone bundle, three report modes, filters, previews, IPC collection and report writes verified without MCP or repository dependencies.');
 } finally {

@@ -1,9 +1,9 @@
 # perf-summary
 
-GitHub PR 활동을 수집·집계해 이력서와 성과 평가용 Markdown 보고서를 만드는 **로컬 MCP 서버 + Claude Code / Codex 플러그인**입니다.
+GitHub PR 활동을 수집·집계해 이력서와 성과 평가용 Markdown 보고서를 만드는 **Claude Code / Codex 공통 스킬**입니다. `npx skills`로 설치하면 별도 MCP 등록 없이 전체 기능을 사용할 수 있습니다. 기존 플러그인과 npm MCP도 계속 지원합니다.
 
 - 공개 npm 패키지: [`perf-summary-mcp`](https://www.npmjs.com/package/perf-summary-mcp), 버전 `1.1.1`
-- 실행: 사용자 PC의 Node.js 프로세스, stdio MCP. 운영 서버·HTTP 포트 없음
+- 실행: 스킬에 포함된 Node.js CLI. 별도 빌드·npm 의존성 설치·운영 서버·HTTP 포트 없음
 - 인증: 기존 `gh auth login` 재사용, 다중 계정 지원
 - 집계: 사용자 PC 시간대의 **PR 생성일** 기준
 - 보고서 문장: 연결한 AI 에이전트가 작성. 별도 LLM API 키 불필요
@@ -19,7 +19,35 @@ GitHub PR 활동을 수집·집계해 이력서와 성과 평가용 Markdown 보
 
 로컬 실행이어도 GitHub 조회에는 네트워크가 필요합니다. AI 보고서 작성을 위해 선택한 PR 근거가 연결된 에이전트에 전달됩니다.
 
-## npm으로 설치·등록
+## npx skills로 설치 (기본)
+
+```bash
+# 현재 프로젝트의 Claude Code와 Codex에 설치
+npx skills add eoeo0326/perf-summary-plugin --skill perf-summary -a claude-code -a codex
+
+# 모든 프로젝트에서 사용하려면 전역 설치
+npx skills add eoeo0326/perf-summary-plugin --skill perf-summary -a claude-code -a codex -g
+```
+
+Claude Code에서는 `/perf-summary`, Codex에서는 `$perf-summary`를 호출합니다. 둘 다 **year, month, since–until과 아래의 모든 옵션**을 지원합니다. 기존 플러그인을 설치하거나 MCP를 별도로 등록할 필요가 없습니다. Node.js와 gh 인증은 위 필수 조건을 따릅니다. 별도 LLM API 키는 필요 없습니다.
+
+```text
+/perf-summary --year 2025 --org acme
+/perf-summary --month 2025-03 --repo acme/app
+/perf-summary --since 2025-03 --until 2025-06 --account alice,bob
+$perf-summary --year 2025 --org acme
+$perf-summary --month 2025-03 --repo acme/app --output ./reports/march.md
+$perf-summary --since 2025-03 --until 2025-06 --account alice,bob
+$perf-summary --since 2025 --until 2025 --dry-run
+```
+
+공통 정본은 [skills/perf-summary/SKILL.md](skills/perf-summary/SKILL.md)이며, 실행 파일·보고서 지침·라이선스가 같은 폴더에 포함됩니다. 설치한 스킬만으로 실행하며 소스 저장소나 node_modules를 참조하지 않습니다. 프로젝트 설치에서는 Codex의 `.agents/skills`, Claude Code의 `.claude/skills`에서 발견됩니다. `--copy` 설치도 지원합니다.
+
+수집은 자동 실행하는 로컬 작업 프로세스에서 진행하며 진행 조회·취소·페이지별 근거 조회를 지원합니다. Unix socket 또는 Windows named pipe만 사용하며 HTTP 포트를 열지 않습니다. GitHub 토큰과 PR 근거는 메모리에만 보관합니다. 임시 폴더에는 로컬 접속 정보만 저장합니다. 프로세스 종료 시 결과가 사라지며 1시간 유휴 후 자동 종료합니다.
+
+설치·복사본·로컬 실행 검증: `npm run test:skills`. 업데이트는 `npx skills update`를 사용합니다. 기존 플러그인 설치 사용자는 별도 스킬을 중복 설치하지 않고 플러그인을 업데이트해도 같은 CLI 실행 지침을 사용합니다.
+
+## 기존 npm MCP 설치·등록 (선택)
 
 기존 플러그인이 동일 MCP를 제공하면 수동 등록을 중복하지 마세요.
 
@@ -117,7 +145,7 @@ MCP는 앱이 시작하는 자식 프로세스입니다. 별도 터미널에서 
 
 ## 사용 방법
 
-MCP만 등록해도 자연어로 요청할 수 있습니다.
+공통 스킬 또는 기존 MCP로 자연어 요청을 사용할 수 있습니다.
 
 ```text
 perf-summary로 2025년 GitHub 성과 보고서를 월별·연간으로 만들어줘
@@ -201,7 +229,7 @@ PerformanceSummary/2025/
 
 - TL;DR, 한눈에 보기, 이력서 항목 추천, 레포별 테마 요약과 접힌 PR 목록
 - 연간 종합에는 회고·핵심 성취·도메인 분포·키워드·월별 추이 추가
-- 공통 규칙: [resources/report-guidelines.md](resources/report-guidelines.md)
+- 공통 규칙 정본: [skills/perf-summary/references/report-guidelines.md](skills/perf-summary/references/report-guidelines.md)
 - PR의 **생성일**로 포함 여부와 월을 결정합니다. 한국 PC는 Asia/Seoul의 자정 경계를 사용합니다. 병합 월이 달라도 생성 월에 집계합니다.
 - PR 상태·전체 변경량은 조회 시점 기준입니다. 과거 기간 보고서를 나중에 다시 만들면 PR 상태와 변경량이 달라질 수 있습니다.
 - commits는 GitHub totalCount이며 축약한 메시지 개수가 아닙니다. commits·changedFiles는 PR별 합계이므로 같은 커밋·파일이 여러 PR에 있으면 중복될 수 있습니다. 직접 push 커밋은 제외합니다.
@@ -233,11 +261,11 @@ npm 패키지가 먼저 게시되어 있어야 합니다. 플러그인의 루트
 
 ### Codex
 
-이 저장소에서는 `.agents/skills/perf-summary`를 통해 repo-local Skill을 사용할 수 있습니다. MCP는 별도로 등록해야 하며 새 작업에서 `$perf-summary`를 호출합니다.
+이 저장소에서는 `.agents/skills/perf-summary`를 통해 repo-local Skill을 사용할 수 있습니다. 정본 스킬의 공통 CLI를 사용하므로 MCP를 별도 등록할 필요가 없습니다. 새 작업에서 `$perf-summary`를 호출합니다.
 
 Codex 플러그인은 `.codex-plugin/plugin.json`에 공통 Skill과 `.mcp.json`을 선언합니다. 기존 personal marketplace에서 이 저장소를 참조하는 사용자는 플러그인을 업데이트·재설치한 뒤 새 작업에서 사용합니다. 새로 연결할 때는 Codex의 로컬 플러그인 설치 흐름에 따라 이 저장소를 personal marketplace에 등록하세요. 플러그인 버전 변경은 MCP 버전과 함께 관리합니다.
 
-Skill은 입력 해석과 도구 호출을 담당합니다. MCP가 없을 때 과거 bash/awk/Python 수집 절차로 대체하지 않고 설치를 안내합니다.
+Skill은 전체 옵션 해석과 공통 CLI 호출·보고서 작성을 담당합니다. 기존 MCP API는 호환용으로 유지하며 새 Skill 실행에는 필요하지 않습니다.
 
 ## 로컬 개발과 게시 전 사용
 
@@ -245,6 +273,7 @@ Skill은 입력 해석과 도구 호출을 담당합니다. MCP가 없을 때 �
 npm ci
 npm run check
 npm run test:package
+npm run test:skills
 ```
 
 실행 파일 직접 등록(경로는 실제 절대경로로 교체):
@@ -266,14 +295,21 @@ perf-summary-mcp --version
 
 ```text
 src/                날짜·집계·gh 어댑터·수집 관리·저장·MCP 진입점
-resources/          모델에 제공하는 공통 보고서 지침
-skills/, commands/  기존 에이전트 플러그인의 진입점
+resources/          정본에서 생성한 기존 MCP용 보고서 지침
+skills/             공통 정본·독립 실행 번들·보고서 지침
+commands/           기존 Claude 플러그인 호환 명령
 scripts/            릴리스 정합성·실제 패키지 설치 검증
 test/               날짜·인증·페이지·취소·저장·MCP 테스트
 .github/workflows/  Node 22/24 × macOS/Linux/Windows CI
 ```
 
 `npm run test:package`는 임시 폴더에 실제 tgz를 설치합니다. 개발 의존성·설치 스크립트 없이, 다른 작업 디렉터리에서 실행한 MCP의 도구·resource·prompt·보고서 저장을 검증하고 임시 파일을 정리합니다. 테스트는 GitHub 쓰기 작업이나 인증 전환을 실행하지 않습니다.
+
+## 스킬 개발
+
+정본 지침은 `skills/perf-summary`에서, 실행 코드는 `src/cli`와 기존 공통 모듈에서 수정합니다. `npm run build:skill`이 의존성을 포함한 실행 번들·라이선스와 기존 MCP용 지침 사본을 생성합니다. 생성된 번들은 Git에 함께 포함해야 `npx skills` 설치 후 빌드 없이 실행됩니다. `npm run check:skill`과 CI가 생성물의 최신 상태를 확인합니다.
+
+`npm run test:skills`는 임시 프로젝트에서 실제 skills CLI로 Claude·Codex용 스킬을 링크·복사 설치하고, 소스 저장소·개발 의존성·MCP 없이 실행합니다. fixture 기반 CLI/MCP 동등성 검증은 `npm test`에 포함됩니다. CLI API는 [references/cli.md](skills/perf-summary/references/cli.md)를 참고하세요.
 
 ## 릴리스 절차
 

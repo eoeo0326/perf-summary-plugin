@@ -1,4 +1,5 @@
 # Keep generated artifacts reproducible on Windows as well as Unix.
 LICENSE text eol=lf
-skills/perf-summary/** text eol=lf
-resources/report-guidelines.md text eol=lf
+skills/** text eol=lf
+resources/*.md text eol=lf
+docs/resume-writing-principles.md text eol=lf

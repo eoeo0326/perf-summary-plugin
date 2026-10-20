@@ -81,12 +81,12 @@ export class CollectionManager {
   ) {}
 
   start(rawInput: CollectInput) {
-    if (this.closed) throw new AppError('SERVER_CLOSED', 'MCP 서버가 종료되었습니다.');
+    if (this.closed) throw new AppError('SERVER_CLOSED', '수집 엔진이 종료되었습니다.');
     this.prune();
     if ([...this.jobs.values()].filter(job => job.status === 'running').length >= 2) {
       throw new AppError('BUSY', '동시 수집은 2개까지 가능합니다. 기존 수집을 완료하거나 취소하세요.');
     }
-    if (this.jobs.size >= 20) throw new AppError('COLLECTION_LIMIT', '보관 가능한 수집 결과를 초과했습니다. 새 MCP 세션에서 다시 실행하세요.');
+    if (this.jobs.size >= 20) throw new AppError('COLLECTION_LIMIT', '보관 가능한 수집 결과를 초과했습니다. 실행 프로세스를 다시 시작하거나 결과가 만료된 후 다시 실행하세요.');
     const input = normalizeInput(rawInput);
     const period = normalizePeriod(input, this.clock(), this.timezone());
     const id = randomUUID();

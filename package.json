@@ -7,13 +7,16 @@
   "files": ["dist", "resources", "README.md", "LICENSE"],
   "engines": { "node": ">=22" },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "npm run build:skill && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",
-    "check": "npm run typecheck && npm test && npm run build && node scripts/check-release.mjs",
+    "check": "npm run check:skill && npm run typecheck && npm test && npm run build && node scripts/check-release.mjs",
     "test:package": "node scripts/test-package.mjs",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run check && npm run test:package"
+    "prepublishOnly": "npm run check && npm run test:package && npm run test:skills",
+    "build:skill": "node scripts/build-skill.mjs",
+    "check:skill": "node scripts/build-skill.mjs --check",
+    "test:skills": "node scripts/test-skills.mjs"
   },
   "repository": { "type": "git", "url": "git+https://github.com/eoeo0326/perf-summary-plugin.git" },
   "homepage": "https://github.com/eoeo0326/perf-summary-plugin#readme",
@@ -31,6 +34,8 @@
     "@modelcontextprotocol/client": "^2.0.0",
     "@types/luxon": "^3.7.0",
     "@types/node": "^22.0.0",
+    "esbuild": "0.28.2",
+    "skills": "1.7.2",
     "tsx": "^4.20.0",
     "typescript": "^6.0.0"
   }

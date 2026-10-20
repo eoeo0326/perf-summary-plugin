@@ -2,7 +2,7 @@
 
 GitHub PR 활동을 수집·집계해 이력서와 성과 평가용 Markdown 보고서를 만드는 **Claude Code / Codex 공통 스킬**입니다. `npx skills`로 설치하면 별도 MCP 등록 없이 전체 기능을 사용할 수 있습니다. 기존 플러그인과 npm MCP도 계속 지원합니다.
 
-- 공개 npm 패키지: [`perf-summary-mcp`](https://www.npmjs.com/package/perf-summary-mcp), 버전 `1.1.1`
+- 공개 npm 패키지: [`perf-summary-mcp`](https://www.npmjs.com/package/perf-summary-mcp), 버전 `1.2.0`
 - 실행: 스킬에 포함된 Node.js CLI. 별도 빌드·npm 의존성 설치·운영 서버·HTTP 포트 없음
 - 인증: 기존 `gh auth login` 재사용, 다중 계정 지원
 - 집계: 사용자 PC 시간대의 **PR 생성일** 기준
@@ -56,7 +56,7 @@ $perf-summary --since 2025 --until 2025 --dry-run
 ### Codex CLI / 앱 / IDE
 
 ```bash
-codex mcp add perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz
+codex mcp add perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz
 codex mcp list
 ```
 
@@ -65,7 +65,7 @@ codex mcp list
 ```toml
 [mcp_servers.perf-summary]
 command = "npx"
-args = ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
+args = ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
 ```
@@ -77,7 +77,7 @@ tool_timeout_sec = 120
 ### Claude Code
 
 ```bash
-claude mcp add --transport stdio --scope user perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz
+claude mcp add --transport stdio --scope user perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz
 claude mcp list
 ```
 
@@ -93,7 +93,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
     "perf-summary": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
+      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
     }
   }
 }
@@ -111,7 +111,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
     "perf-summary": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
+      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
     }
   }
 }
@@ -122,7 +122,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
 ### 전역 설치 / Windows / PATH
 
 ```bash
-npm install -g perf-summary-mcp@1.1.1
+npm install -g perf-summary-mcp@1.2.0
 perf-summary-mcp --version
 ```
 
@@ -135,7 +135,7 @@ Windows에서 클라이언트가 `npx`를 직접 실행하지 못하면 다음 �
 ```json
 {
   "command": "cmd",
-  "args": ["/d", "/s", "/c", "npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.1.1.tgz"]
+  "args": ["/d", "/s", "/c", "npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
 }
 ```
 
@@ -287,7 +287,7 @@ claude mcp add --transport stdio --scope user perf-summary -- node /absolute/pat
 
 ```bash
 npm pack
-npm install -g ./perf-summary-mcp-1.1.1.tgz
+npm install -g ./perf-summary-mcp-1.2.0.tgz
 perf-summary-mcp --version
 ```
 
@@ -318,7 +318,7 @@ test/               날짜·인증·페이지·취소·저장·MCP 테스트
 3. `npm whoami`로 게시 계정을 확인합니다. 인증되지 않았다면 별도 터미널에서 `npm login`을 실행합니다.
 4. `npm view perf-summary-mcp version`으로 이름 소유권·기존 버전을 확인합니다. 404만으로 이름 예약 가능성이 보장되지는 않습니다.
 5. `npm publish --access public`을 실행합니다. prepublishOnly가 검사와 실제 패키지 설치 검증을 다시 실행합니다.
-6. `npm view perf-summary-mcp@1.1.1 version` 및 게시 패키지의 npx 실행을 확인합니다.
+6. `npm view perf-summary-mcp@1.2.0 version` 및 게시 패키지의 npx 실행을 확인합니다.
 7. 그 버전을 참조하는 플러그인 변경을 커밋·푸시하고 같은 버전으로 GitHub 릴리스를 만듭니다. npm이 게시되기 전에는 플러그인 릴리스를 공개하지 않습니다.
 
 npm에는 컴파일된 dist, resources, README, LICENSE, package.json만 포함합니다. 토큰·사용자 보고서·개발 로컬 설정은 포함하지 않습니다. 자동 npm 게시 workflow는 만들지 않았으며, 게시 계정의 인증·2FA 또는 npm이 지원하는 trusted publishing 설정이 필요합니다.

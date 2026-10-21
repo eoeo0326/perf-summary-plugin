@@ -164,9 +164,9 @@ npx skills update
 | [보고서 작성 지침](https://github.com/eoeo0326/perf-summary-plugin/blob/main/skills/perf-summary/references/report-guidelines.md) | 보고서 템플릿과 통계 해석 규칙 |
 | [이력서 작성 스킬](https://github.com/eoeo0326/perf-summary-plugin/blob/main/skills/resume-builder/SKILL.md) | 전체 성과 검토, 구성·내용 추천, Markdown·HTML 샘플 |
 | [이력서 작성 공통 원칙](https://github.com/eoeo0326/perf-summary-plugin/blob/main/docs/resume-writing-principles.md) | 두 스킬이 공유하는 성과 선정·검증·서술 원칙의 정본 |
-| [v1.2.0 릴리스 노트](https://github.com/eoeo0326/perf-summary-plugin/releases/tag/v1.2.0) | 이번 버전의 변경점과 업데이트 안내 |
+| [v1.3.0 릴리스 노트](https://github.com/eoeo0326/perf-summary-plugin/releases/tag/v1.3.0) | 이번 버전의 변경점과 업데이트 안내 |
 
-MCP만 사용하는 경우 [npm 패키지 `perf-summary-mcp@1.2.0`](https://www.npmjs.com/package/perf-summary-mcp/v/1.2.0)를 사용할 수 있습니다.
+MCP만 사용하는 경우 [npm 패키지 `perf-summary-mcp@1.3.0`](https://www.npmjs.com/package/perf-summary-mcp/v/1.3.0)를 사용할 수 있습니다.
 
 ## 라이선스
 

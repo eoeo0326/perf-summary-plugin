@@ -1,7 +1,7 @@
 {
   "name": "perf-summary",
   "description": "GitHub 성과 보고서와 PerformanceSummary 기반 이력서 구성·내용 추천 및 Markdown·HTML 샘플을 제공합니다.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": {
     "name": "eoeo0326-deepmedi",
     "url": "https://github.com/eoeo0326-deepmedi"

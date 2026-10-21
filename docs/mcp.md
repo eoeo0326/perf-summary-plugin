@@ -15,7 +15,7 @@
 ### Codex CLI / 앱 / IDE
 
 ```bash
-codex mcp add perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz
+codex mcp add perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.3.0.tgz
 codex mcp list
 ```
 
@@ -24,7 +24,7 @@ codex mcp list
 ```toml
 [mcp_servers.perf-summary]
 command = "npx"
-args = ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
+args = ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.3.0.tgz"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
 ```
@@ -36,7 +36,7 @@ tool_timeout_sec = 120
 ### Claude Code
 
 ```bash
-claude mcp add --transport stdio --scope user perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz
+claude mcp add --transport stdio --scope user perf-summary -- npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.3.0.tgz
 claude mcp list
 ```
 
@@ -52,7 +52,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
     "perf-summary": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
+      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.3.0.tgz"]
     }
   }
 }
@@ -70,7 +70,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
     "perf-summary": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
+      "args": ["-y", "https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.3.0.tgz"]
     }
   }
 }
@@ -81,7 +81,7 @@ Cursor는 `.cursor/mcp.json` 또는 `~/.cursor/mcp.json`에 다음 설정을 추
 ### 전역 설치 / Windows / PATH
 
 ```bash
-npm install -g perf-summary-mcp@1.2.0
+npm install -g perf-summary-mcp@1.3.0
 perf-summary-mcp --version
 ```
 
@@ -94,7 +94,7 @@ Windows에서 클라이언트가 `npx`를 직접 실행하지 못하면 다음 �
 ```json
 {
   "command": "cmd",
-  "args": ["/d", "/s", "/c", "npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz"]
+  "args": ["/d", "/s", "/c", "npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.3.0.tgz"]
 }
 ```
 

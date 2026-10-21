@@ -1,6 +1,6 @@
 {
   "name": "perf-summary-mcp",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Local MCP server for GitHub activity and performance reports using your gh accounts",
   "type": "module",
   "bin": { "perf-summary-mcp": "dist/mcp/server.js" },

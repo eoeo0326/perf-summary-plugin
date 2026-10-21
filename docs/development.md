@@ -46,7 +46,7 @@ claude mcp add --transport stdio --scope user perf-summary -- node /absolute/pat
 
 ```bash
 npm pack
-npm install -g ./perf-summary-mcp-1.2.0.tgz
+npm install -g ./perf-summary-mcp-1.3.0.tgz
 perf-summary-mcp --version
 ```
 
@@ -69,7 +69,7 @@ perf-summary-mcp --version
 
 1. 패키지·잠금 파일, 두 플러그인 매니페스트, `.mcp.json`, README와 이 문서·MCP 안내의 고정 버전 예시를 함께 갱신합니다.
 2. `npm run build:skill`로 실행 번들·라이선스·지침 사본을 갱신하고 생성물을 변경사항에 포함합니다.
-3. [릴리스 노트 템플릿](../.github/RELEASE_TEMPLATE.md)을 복사해 `docs/releases/v<버전>.md`를 작성합니다. **GitHub Release 제목은 `v<버전>`만** 사용하고 변경 요약과 설치·업데이트 안내는 본문에 담습니다. [v1.2.0 노트](releases/v1.2.0.md)를 참고하세요.
+3. [릴리스 노트 템플릿](../.github/RELEASE_TEMPLATE.md)을 복사해 `docs/releases/v<버전>.md`를 작성합니다. **GitHub Release 제목은 `v<버전>`만** 사용하고 변경 요약과 설치·업데이트 안내는 본문에 담습니다. [v1.3.0 노트](releases/v1.3.0.md)를 참고하세요.
 4. `npm run check`, `npm run test:package`, `npm run test:skills`와 CI를 통과시킵니다. 릴리스 PR을 검토·머지한 커밋에서 배포합니다.
 5. `npm whoami`로 게시 계정을 확인합니다. 인증되지 않았다면 별도 터미널에서 `npm login`을 실행합니다.
 6. `npm view perf-summary-mcp version`으로 이름 소유권·기존 버전을 확인합니다. 404만으로 이름 예약 가능성이 보장되지는 않습니다.
@@ -77,8 +77,8 @@ perf-summary-mcp --version
 8. 아래 명령으로 공개 버전과 배포 파일 실행을 확인합니다. 게시 직후 처리·캐시 반영에 시간이 걸릴 수 있으므로 공개 조회 전 같은 버전을 다시 게시하지 않습니다.
 
    ```bash
-   npm view perf-summary-mcp@1.2.0 version
-   npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.2.0.tgz --version
+   npm view perf-summary-mcp@1.3.0 version
+   npx -y https://registry.npmjs.org/perf-summary-mcp/-/perf-summary-mcp-1.3.0.tgz --version
    ```
 
 9. 배포 커밋에 같은 버전의 태그를 만들고 릴리스 노트를 본문으로 GitHub Release를 공개합니다. npm 배포 파일을 확인하기 전에는 GitHub Release를 공개하지 않습니다.

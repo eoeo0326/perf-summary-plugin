@@ -34,13 +34,13 @@ export function createApp(github = new GithubClient(), collections = new Collect
   }, async () => result(() => executeTool('check_environment', {}, services)));
 
   server.registerTool('collect_activity', {
-    description: 'GitHub PR 성과 수집을 시작합니다. year/month/since 중 하나만 지정하세요. 즉시 collectionId를 반환하며 get_activity로 완료·부분 실패를 확인합니다.',
+    description: 'GitHub PR과 PR 없는 커밋 성과 수집을 시작합니다. year/month/since 중 하나만 지정하세요. 즉시 collectionId를 반환하며 get_activity로 완료·부분 실패를 확인합니다.',
     inputSchema: collectSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, async input => result(() => executeTool('collect_activity', input, services)));
 
   server.registerTool('get_activity', {
-    description: '수집 진행 상태 또는 PR 생성일 기준 통계·근거 페이지를 조회합니다. 완료 후 nextCursor가 없을 때까지 읽으세요. complete=false면 누락 경고가 필수입니다.',
+    description: '수집 진행 상태 또는 PR 생성일과 커밋 작성일 기준 통계·근거 페이지를 조회합니다. 완료 후 nextCursor가 없을 때까지 읽으세요. complete=false면 누락 경고가 필수입니다.',
     inputSchema: toolSchemas.get_activity,
     annotations: readOnly,
   }, async input => result(() => executeTool('get_activity', input, services)));

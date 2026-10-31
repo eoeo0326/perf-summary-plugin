@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { DateTime } from 'luxon';
 import { aggregate, sortPullRequests } from './aggregate.js';
+import { groupCommits } from './commit-groups.js';
 import { AppError, publicError } from './errors.js';
 import { accountName, repoName, repositoryOf, type Credential, type SearchItem } from './github/client.js';
 import { activityMonth, includesCreatedAt, normalizePeriod, systemTimezone } from './period.js';
-import type { CollectInput, Issue, Period, Progress, PullRequest } from './types.js';
+import type { CollectInput, Issue, Period, Progress, PullRequest, StandaloneCommit } from './types.js';
 
 export interface ActivitySource {
   credentials(requested: string[] | undefined, signal: AbortSignal): Promise<Credential[]>;
@@ -12,6 +13,8 @@ export interface ActivitySource {
     total_count: number; incomplete_results: boolean; items: SearchItem[];
   }>;
   detail(item: SearchItem, credential: Credential, signal: AbortSignal): Promise<PullRequest>;
+  standaloneCommits?(credential: Credential, input: CollectInput, period: Period, signal: AbortSignal,
+    onIssue: (error: unknown, repository?: string) => void): Promise<StandaloneCommit[]>;
 }
 
 type Status = 'running' | 'completed' | 'partial' | 'failed' | 'cancelled';
@@ -23,6 +26,7 @@ interface Collection {
   status: Status;
   progress: Progress;
   prs: PullRequest[];
+  commits: StandaloneCommit[];
   issues: Issue[];
   issueCount: number;
   controller: AbortController;
@@ -93,7 +97,7 @@ export class CollectionManager {
     const job: Collection = {
       id, input, period, accounts: [], status: 'running',
       progress: { phase: 'authentication', discovered: 0, processed: 0, succeeded: 0, failed: 0 },
-      prs: [], issues: [], issueCount: 0, controller: new AbortController(),
+      prs: [], commits: [], issues: [], issueCount: 0, controller: new AbortController(),
       completion: Promise.resolve(), touchedAt: this.clock(), searchRequests: 0,
     };
     this.jobs.set(id, job);
@@ -171,12 +175,35 @@ export class CollectionManager {
       }));
       signal.throwIfAborted();
       job.prs = sortPullRequests(job.prs, job.period);
-      job.status = job.issueCount ? (job.prs.length ? 'partial' : 'failed') : 'completed';
+      if (this.source.standaloneCommits) {
+        job.progress.phase = 'commits';
+        const commits = new Map<string, StandaloneCommit>();
+        for (const credential of credentials) {
+          try {
+            const items = await this.source.standaloneCommits(credential, job.input, job.period, signal,
+              (error, repository) => this.issue(job, error, { account: credential.login, url: repository ? 'https://github.com/' + repository : undefined }));
+            for (const item of items) {
+              const key = item.repository.toLowerCase() + ':' + item.sha.toLowerCase();
+              const existing = commits.get(key);
+              if (!existing || (existing.association === 'unknown' && item.association === 'none')) commits.set(key, item);
+              else existing.branches = [...new Set([...existing.branches, ...item.branches])];
+            }
+          } catch (error) {
+            if (signal.aborted) throw error;
+            this.issue(job, error, { account: credential.login });
+          }
+        }
+        job.commits = [...commits.values()].sort((a, b) => b.authoredAt.localeCompare(a.authoredAt) || a.url.localeCompare(b.url));
+        if (job.commits.some(commit => commit.association === 'unknown') && !job.issueCount) {
+          this.issue(job, new AppError('ASSOCIATION_UNKNOWN', '일부 커밋의 PR 연결을 확인하지 못했습니다.'));
+        }
+      }
+      job.status = job.issueCount ? (job.prs.length || job.commits.length ? 'partial' : 'failed') : 'completed';
     } catch (error) {
       if (signal.aborted) job.status = 'cancelled';
       else {
         this.issue(job, error);
-        job.status = job.prs.length ? 'partial' : 'failed';
+        job.status = job.prs.length || job.commits.length ? 'partial' : 'failed';
       }
     } finally {
       // Release references to all per-account credentials when collection finishes.
@@ -257,7 +284,7 @@ export class CollectionManager {
     };
     if (job.status === 'running') {
       if (input.cursor) throw new AppError('INVALID_CURSOR', '완료된 수집 결과에서만 cursor를 사용하세요.');
-      return { ...base, prs: [], nextCursor: null, summary: null, matchingCount: null, reportWarning: null };
+      return { ...base, prs: [], commitGroups: [], commitSummary: null, nextCursor: null, summary: null, matchingCount: null, reportWarning: null };
     }
     const signature = JSON.stringify([job.id, input.month ?? null, input.repo?.toLowerCase() ?? null]);
     let offset = 0;
@@ -271,22 +298,34 @@ export class CollectionManager {
     const matching = job.prs.filter(pr =>
       (!input.month || activityMonth(pr.createdAt, job.period) === input.month) &&
       (!input.repo || pr.repository.toLowerCase() === input.repo.toLowerCase()));
-    if (offset > matching.length) throw new AppError('INVALID_CURSOR', 'cursor가 결과 범위를 벗어났습니다.');
+    const commits = job.commits.filter(commit =>
+      (!input.month || activityMonth(commit.authoredAt, job.period) === input.month) &&
+      (!input.repo || commit.repository.toLowerCase() === input.repo.toLowerCase()));
+    const groups = groupCommits(commits);
+    const entries = [...matching.map(pr => ({ kind: 'pr' as const, value: pr })),
+      ...groups.flatMap(group => group.commits.map(commit => ({ kind: 'commit' as const, value: commit })))];
+    if (offset > entries.length) throw new AppError('INVALID_CURSOR', 'cursor가 결과 범위를 벗어났습니다.');
     const prs: PullRequest[] = [];
+    const pageCommits: StandaloneCommit[] = [];
     let bytes = 0;
-    for (const pr of matching.slice(offset, offset + pageSize)) {
-      const size = Buffer.byteLength(JSON.stringify(pr));
-      if (prs.length && bytes + size > 32_768) break;
-      prs.push(pr);
+    for (const entry of entries.slice(offset, offset + pageSize)) {
+      const size = Buffer.byteLength(JSON.stringify(entry.value));
+      if ((prs.length || pageCommits.length) && bytes + size > 32_768) break;
+      if (entry.kind === 'pr') prs.push(entry.value); else pageCommits.push(entry.value);
       bytes += size;
     }
-    const nextOffset = offset + prs.length;
+    const nextOffset = offset + prs.length + pageCommits.length;
     return {
       ...base, summary: aggregate(matching, job.period), matchingCount: matching.length, prs,
-      nextCursor: nextOffset < matching.length ?
+      commitGroups: groupCommits(pageCommits), commitSummary: {
+        commits: commits.filter(commit => commit.association === 'none').length,
+        groups: groups.filter(group => group.commits[0]?.association === 'none').length,
+        unknown: commits.filter(commit => commit.association === 'unknown').length,
+      },
+      nextCursor: nextOffset < entries.length ?
         Buffer.from(JSON.stringify({ signature, offset: nextOffset })).toString('base64url') : null,
       reportWarning: job.status !== 'completed' ?
-        '수집이 완료되지 않았습니다. 아래 통계는 성공한 PR만 포함하며 완전한 성과 보고서로 제시하면 안 됩니다.' : null,
+        '수집이 완료되지 않았습니다. 통계는 확인된 일부 활동만 포함하며 완전한 성과 보고서로 제시하면 안 됩니다.' : null,
     };
   }
 

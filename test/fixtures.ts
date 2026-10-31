@@ -48,6 +48,7 @@ export function fixtureRunner(
       const n = options.env.GH_TOKEN === 'secret-for-bob' ? 2 : 1;
       return json({ total_count: 1, incomplete_results: false, items: [item(n)] });
     }
+    if (args.includes('user/repos')) return json([]);
     if (args.includes('graphql')) {
       const input = JSON.parse(options.input!);
       if (input.query.includes('headRefName')) {

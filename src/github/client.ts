@@ -2,7 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod/v4';
 import { AppError, publicError } from '../errors.js';
 import { systemTimezone } from '../period.js';
-import type { Account, Environment, PullRequest } from '../types.js';
+import type { Account, Environment, PullRequest, StandaloneCommit, CollectInput, Period } from '../types.js';
 import { trimBody } from './evidence.js';
 import { ghEnvironment, runGh, type Runner } from './process.js';
 
@@ -226,6 +226,95 @@ export class GithubClient {
       '--method', 'GET', 'search/issues', '-f', 'q=' + query,
       '-f', 'sort=created', '-f', 'order=asc', '-F', 'per_page=100', '-F', 'page=' + page,
     ], credential, signal));
+  }
+
+  async standaloneCommits(credential: Credential, input: CollectInput, period: Period, signal: AbortSignal,
+    onIssue: (error: unknown, repository?: string) => void): Promise<StandaloneCommit[]> {
+    const page = async (endpoint: string, params: string[] = []): Promise<unknown[]> => {
+      const all: unknown[] = [];
+      for (let n = 1; n <= 1000; n++) {
+        const value = await this.api(['--method', 'GET', endpoint, ...params,
+          '-F', 'per_page=100', '-F', 'page=' + n], credential, signal);
+        if (!Array.isArray(value)) throw new AppError('INVALID_RESPONSE', 'GitHub 목록 응답이 올바르지 않습니다.');
+        all.push(...value);
+        if (value.length < 100) return all;
+      }
+      throw new AppError('COLLECTION_LIMIT', 'GitHub 목록 조회 한도에 도달했습니다.');
+    };
+    const repoSchema = z.object({ full_name: repoName, default_branch: z.string().min(1), fork: z.boolean() });
+    const branchSchema = z.object({ name: z.string().min(1), commit: z.object({ sha: z.string().regex(/^[a-f0-9]{40}$/i) }) });
+    const commitSchema = z.object({ sha: z.string().regex(/^[a-f0-9]{40}$/i), html_url: z.string(),
+      author: z.object({ login: z.string() }).nullable(), commit: z.object({ message: z.string(),
+        author: z.object({ date: z.string() }).nullable() }) });
+    const pullSchema = z.object({ number: z.number().int().positive() });
+    const repositories = input.repo ? [parse(repoSchema, await this.api(['repos/' + input.repo], credential, signal))] :
+      (await page('user/repos', ['-f', 'affiliation=owner,collaborator,organization_member']))
+        .map(value => parse(repoSchema, value));
+    const result: StandaloneCommit[] = [];
+    for (const repo of repositories) {
+      signal.throwIfAborted();
+      if (!input.repo && input.orgs && !input.orgs.some(org => repo.full_name.split('/')[0]!.toLowerCase() === org.toLowerCase())) continue;
+      const endpoint = 'repos/' + repo.full_name;
+      const found = new Map<string, StandaloneCommit>();
+      const associated = new Set<string>();
+      try {
+        const branches = (await page(endpoint + '/branches')).map(value => parse(branchSchema, value));
+        for (const branch of branches) {
+          const commits = await page(endpoint + '/commits', ['-f', 'sha=' + branch.commit.sha, '-f', 'author=' + credential.login]);
+          for (const raw of commits) {
+            const commit = parse(commitSchema, raw);
+            const date = commit.commit.author?.date;
+            const timestamp = date ? Date.parse(date) : NaN;
+            if (!date || !Number.isFinite(timestamp)) throw new AppError('INVALID_RESPONSE', '커밋 작성일을 확인하지 못했습니다.');
+            if (commit.author?.login.toLowerCase() !== credential.login.toLowerCase() || timestamp < period.startMs || timestamp >= period.endMs) continue;
+            const expectedUrl = 'https://github.com/' + repo.full_name + '/commit/' + commit.sha;
+            if (commit.html_url.toLowerCase() !== expectedUrl.toLowerCase()) throw new AppError('INVALID_RESPONSE', '커밋 주소를 검증하지 못했습니다.');
+            const existing = found.get(commit.sha);
+            if (existing) existing.branches.push(branch.name);
+            else found.set(commit.sha, { repository: repo.full_name, sha: commit.sha, url: commit.html_url,
+              author: credential.login, authoredAt: date, message: commit.commit.message.slice(0, 2000),
+              messageTruncated: commit.commit.message.length > 2000,
+              branches: [branch.name], defaultBranch: repo.default_branch, association: 'unknown' });
+          }
+        }
+        if (!found.size) continue;
+        // The commit association endpoint alone does not cover all closed PRs on non-default branches.
+        for (const raw of await page(endpoint + '/pulls', ['-f', 'state=all'])) {
+          const pull = parse(pullSchema, raw);
+          let cursor: string | null = null;
+          const seen = new Set<string>();
+          do {
+            const query = 'query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){commits(first:100,after:$cursor){nodes{commit{oid}} pageInfo{hasNextPage endCursor}}}}}';
+            const schema = z.object({ data: z.object({ repository: z.object({ pullRequest: z.object({ commits: z.object({
+              nodes: z.array(z.object({ commit: z.object({ oid: z.string().regex(/^[a-f0-9]{40}$/i) }) })),
+              pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }),
+            }) }) }) }) });
+            const [owner, name] = repo.full_name.split('/');
+            const response: z.infer<typeof schema>['data']['repository']['pullRequest']['commits'] = parse(schema, await this.api(['--method', 'POST', 'graphql', '--input', '-'], credential, signal,
+              JSON.stringify({ query, variables: { owner, repo: name, number: pull.number, cursor } }))).data.repository.pullRequest.commits;
+            for (const node of response.nodes) associated.add(node.commit.oid.toLowerCase());
+            cursor = response.pageInfo.hasNextPage ? response.pageInfo.endCursor : null;
+            if (response.pageInfo.hasNextPage && (!cursor || seen.has(cursor))) throw new AppError('INVALID_RESPONSE', 'PR 커밋 페이지를 모두 읽지 못했습니다.');
+            if (cursor) seen.add(cursor);
+          } while (cursor);
+        }
+        for (const commit of found.values()) {
+          if (associated.has(commit.sha.toLowerCase())) continue;
+          const pulls = await page(endpoint + '/commits/' + commit.sha + '/pulls');
+          if (!pulls.length && !repo.fork) { commit.association = 'none'; result.push(commit); }
+          else if (!pulls.length) result.push(commit);
+          else associated.add(commit.sha.toLowerCase());
+        }
+        if (repo.fork && [...found.values()].some(commit => commit.association === 'unknown' && !associated.has(commit.sha.toLowerCase()))) {
+          onIssue(new AppError('ASSOCIATION_UNKNOWN', '포크 저장소의 상위 저장소 PR 연결은 확인하지 못했습니다.'), repo.full_name);
+        }
+      } catch (error) {
+        if (signal.aborted) throw error;
+        onIssue(error, repo.full_name);
+        result.push(...[...found.values()].filter(commit => commit.association === 'unknown' && !associated.has(commit.sha.toLowerCase())));
+      }
+    }
+    return result;
   }
 
   async detail(item: SearchItem, credential: Credential, signal: AbortSignal): Promise<PullRequest> {

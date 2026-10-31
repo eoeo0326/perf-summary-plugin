@@ -63,6 +63,27 @@ export interface PullRequest {
   evidenceNotes: string[];
 }
 
+export interface StandaloneCommit {
+  repository: string;
+  sha: string;
+  url: string;
+  author: string;
+  authoredAt: string;
+  message: string;
+  messageTruncated: boolean;
+  branches: string[];
+  defaultBranch: string;
+  association: 'none' | 'unknown';
+}
+
+export interface CommitGroup {
+  id: string;
+  repository: string;
+  basis: 'issue' | 'branch' | 'commit';
+  label: string;
+  commits: StandaloneCommit[];
+}
+
 export interface Statistics {
   prs: number;
   merged: number;
@@ -83,7 +104,7 @@ export interface Issue {
 }
 
 export interface Progress {
-  phase: 'authentication' | 'search' | 'details' | 'done';
+  phase: 'authentication' | 'search' | 'details' | 'commits' | 'done';
   discovered: number;
   processed: number;
   succeeded: number;
